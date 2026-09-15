@@ -64,6 +64,12 @@
                             </svg>
                             <span>Zonas DECEA</span>
                         </button>
+                        <button id="btn-airspace-config" class="btn btn-icon-round" title="Configurar Camadas do DECEA">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            </svg>
+                        </button>
                         <button id="btn-locate" class="btn btn-icon-small" title="Minha Localização">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="10"></circle>
@@ -83,7 +89,8 @@
                     <div class="legend-item"><span class="legend-badge badge-prohibited"></span> Proibida</div>
                     <div class="legend-item"><span class="legend-badge badge-restricted"></span> Restrita</div>
                     <div class="legend-item"><span class="legend-badge badge-dangerous"></span> Perigosa</div>
-                    <div class="legend-item"><span class="legend-badge badge-ctr"></span> CTR Aeródromo</div>
+                    <div class="legend-item"><span class="legend-badge badge-ctr"></span> CTR / ATZ</div>
+                    <div class="legend-item"><span class="legend-badge badge-runway"></span> Pistas / AD</div>
                 </div>
             </section>
 
@@ -144,12 +151,89 @@
                         <span>Copiar Ambas</span>
                     </button>
                 </div>
-            </section>
         </main>
 
         <footer class="app-footer">
             <p>Criado para facilitação de registro cartográfico de coordenadas.</p>
         </footer>
+    </div>
+
+    <!-- Modal de Configuração de Camadas DECEA -->
+    <div id="modal-airspace" class="modal-backdrop" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><span class="indicator-dot"></span> Camadas do Espaço Aéreo (DECEA)</h3>
+                <button id="btn-close-modal" class="btn-close-modal" aria-label="Fechar">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">Selecione quais dados e restrições aeronáuticas devem ser renderizados no mapa:</p>
+                <div class="layer-options">
+                    <label class="layer-toggle-item">
+                        <input type="checkbox" id="layer-prohibited" checked data-layer="ICA:eac_p">
+                        <span class="custom-toggle"></span>
+                        <div class="layer-info">
+                            <span class="layer-title"><span class="legend-badge badge-prohibited"></span> Áreas Proibidas (P)</span>
+                            <span class="layer-sub">Voo terminantemente vedado</span>
+                        </div>
+                    </label>
+                    <label class="layer-toggle-item">
+                        <input type="checkbox" id="layer-restricted" checked data-layer="ICA:eac_r">
+                        <span class="custom-toggle"></span>
+                        <div class="layer-info">
+                            <span class="layer-title"><span class="legend-badge badge-restricted"></span> Áreas Restritas (R)</span>
+                            <span class="layer-sub">Áreas militares, presídios, reservas</span>
+                        </div>
+                    </label>
+                    <label class="layer-toggle-item">
+                        <input type="checkbox" id="layer-dangerous" checked data-layer="ICA:eac_d">
+                        <span class="custom-toggle"></span>
+                        <div class="layer-info">
+                            <span class="layer-title"><span class="legend-badge badge-dangerous"></span> Áreas Perigosas (D)</span>
+                            <span class="layer-sub">Tiro real, paraquedismo, etc.</span>
+                        </div>
+                    </label>
+                    <label class="layer-toggle-item">
+                        <input type="checkbox" id="layer-atz" checked data-layer="ICA:ATZ">
+                        <span class="custom-toggle"></span>
+                        <div class="layer-info">
+                            <span class="layer-title"><span class="legend-badge badge-ctr"></span> Zonas de Aeródromos (ATZ)</span>
+                            <span class="layer-sub">Zonas de tráfego aéreo e proteção local</span>
+                        </div>
+                    </label>
+                    <label class="layer-toggle-item">
+                        <input type="checkbox" id="layer-runways" checked data-layer="ICA:runway_v2,ICA:rwydirection">
+                        <span class="custom-toggle"></span>
+                        <div class="layer-info">
+                            <span class="layer-title"><span class="legend-badge badge-runway"></span> Pistas & Eixos de Cabeceiras</span>
+                            <span class="layer-sub">Traçado de pista e prolongamento de eixos</span>
+                        </div>
+                    </label>
+                    <label class="layer-toggle-item">
+                        <input type="checkbox" id="layer-ctr" checked data-layer="ICA:CTR,ICA:TMA">
+                        <span class="custom-toggle"></span>
+                        <div class="layer-info">
+                            <span class="layer-title"><span class="legend-badge badge-ctr"></span> Espaço Controlado (CTR / TMA)</span>
+                            <span class="layer-sub">Zonas de controle de aproximação terminal</span>
+                        </div>
+                    </label>
+                    <label class="layer-toggle-item">
+                        <input type="checkbox" id="layer-airports" checked data-layer="ICA:airport_heliport">
+                        <span class="custom-toggle"></span>
+                        <div class="layer-info">
+                            <span class="layer-title"><span class="legend-badge badge-runway"></span> Aeródromos & Helipontos</span>
+                            <span class="layer-sub">Pontos e ícones de localização</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-actions-left">
+                    <button id="btn-select-all-layers" class="btn btn-text-small">Marcar Todos</button>
+                    <button id="btn-unselect-all-layers" class="btn btn-text-small">Desmarcar</button>
+                </div>
+                <button id="btn-apply-modal" class="btn btn-primary btn-modal-apply">Concluído</button>
+            </div>
+        </div>
     </div>
 
     <!-- Toast Notifications Container -->

@@ -7,7 +7,14 @@ const btnCopyLng = document.getElementById('btn-copy-lng');
 const btnCopyBoth = document.getElementById('btn-copy-both');
 const btnLocate = document.getElementById('btn-locate');
 const btnAirspace = document.getElementById('btn-airspace');
+const btnAirspaceConfig = document.getElementById('btn-airspace-config');
+const modalAirspace = document.getElementById('modal-airspace');
+const btnCloseModal = document.getElementById('btn-close-modal');
+const btnApplyModal = document.getElementById('btn-apply-modal');
+const btnSelectAllLayers = document.getElementById('btn-select-all-layers');
+const btnUnselectAllLayers = document.getElementById('btn-unselect-all-layers');
 const airspaceLegend = document.getElementById('airspace-legend');
+const layerCheckboxes = document.querySelectorAll('.layer-options input[type="checkbox"]');
 const btnClear = document.getElementById('btn-clear');
 const btnThemeToggle = document.getElementById('btn-theme-toggle');
 const toastContainer = document.getElementById('toast-container');
@@ -22,6 +29,7 @@ let isAirspaceActive = false;
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    loadLayerPreferences();
     initMap();
     initAirspaceLayer();
     setupEventListeners();
@@ -63,17 +71,46 @@ function initMap() {
     tryGeolocation(true);
 }
 
+// Get active selected WMS layers list from modal checkboxes
+function getActiveLayersList() {
+    const activeLayers = [];
+    layerCheckboxes.forEach(cb => {
+        if (cb.checked && cb.dataset.layer) {
+            activeLayers.push(cb.dataset.layer);
+        }
+    });
+    return activeLayers.join(',');
+}
+
 // Initialize DECEA Airspace WMS Layer
 function initAirspaceLayer() {
+    const layersParam = getActiveLayersList() || 'ICA:eac_r,ICA:eac_p,ICA:eac_d';
     deceaAirspaceLayer = L.tileLayer.wms('https://geoaisweb.decea.mil.br/geoserver/wms', {
-        layers: 'ICA:eac_r,ICA:eac_p,ICA:eac_d,ICA:CTR',
+        layers: layersParam,
         format: 'image/png',
         transparent: true,
-        opacity: 0.65,
+        opacity: 0.70,
         version: '1.1.1',
         maxZoom: 19,
         attribution: '&copy; <a href="https://geoaisweb.decea.mil.br/" target="_blank">DECEA/GeoAISWEB</a>'
     });
+}
+
+// Update active layers dynamically
+function updateAirspaceLayer() {
+    const activeLayers = getActiveLayersList();
+    if (deceaAirspaceLayer) {
+        if (activeLayers) {
+            deceaAirspaceLayer.setParams({ layers: activeLayers });
+            if (isAirspaceActive && !map.hasLayer(deceaAirspaceLayer)) {
+                map.addLayer(deceaAirspaceLayer);
+            }
+        } else {
+            if (map.hasLayer(deceaAirspaceLayer)) {
+                map.removeLayer(deceaAirspaceLayer);
+            }
+        }
+    }
 }
 
 // Toggle Airspace restriction layer visibility
@@ -81,8 +118,16 @@ function toggleAirspace() {
     isAirspaceActive = !isAirspaceActive;
 
     if (isAirspaceActive) {
+        const activeLayers = getActiveLayersList();
+        if (!activeLayers) {
+            showToast('Nenhuma camada selecionada na configuração.', 'error');
+            isAirspaceActive = false;
+            return;
+        }
         if (!deceaAirspaceLayer) {
             initAirspaceLayer();
+        } else {
+            deceaAirspaceLayer.setParams({ layers: activeLayers });
         }
         map.addLayer(deceaAirspaceLayer);
         btnAirspace.classList.add('active');
@@ -96,6 +141,42 @@ function toggleAirspace() {
         if (airspaceLegend) airspaceLegend.style.display = 'none';
         showToast('Zonas de Restrição DECEA desativadas');
     }
+}
+
+// Layer Preferences Persistence
+function saveLayerPreferences() {
+    const prefs = {};
+    layerCheckboxes.forEach(cb => {
+        prefs[cb.id] = cb.checked;
+    });
+    localStorage.setItem('geoloc_decea_layers', JSON.stringify(prefs));
+}
+
+function loadLayerPreferences() {
+    try {
+        const saved = localStorage.getItem('geoloc_decea_layers');
+        if (saved) {
+            const prefs = JSON.parse(saved);
+            layerCheckboxes.forEach(cb => {
+                if (prefs[cb.id] !== undefined) {
+                    cb.checked = prefs[cb.id];
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('Could not load layer preferences:', e);
+    }
+}
+
+// Modal Handlers
+function openModal() {
+    if (modalAirspace) modalAirspace.style.display = 'flex';
+}
+
+function closeModal() {
+    if (modalAirspace) modalAirspace.style.display = 'none';
+    saveLayerPreferences();
+    updateAirspaceLayer();
 }
 
 // Setup Event Listeners
@@ -119,6 +200,34 @@ function setupEventListeners() {
     // Airspace restriction layer toggle action
     if (btnAirspace) {
         btnAirspace.addEventListener('click', toggleAirspace);
+    }
+
+    // Airspace Config modal actions
+    if (btnAirspaceConfig) {
+        btnAirspaceConfig.addEventListener('click', openModal);
+    }
+    if (btnCloseModal) {
+        btnCloseModal.addEventListener('click', closeModal);
+    }
+    if (btnApplyModal) {
+        btnApplyModal.addEventListener('click', closeModal);
+    }
+    if (modalAirspace) {
+        modalAirspace.addEventListener('click', (e) => {
+            if (e.target === modalAirspace) closeModal();
+        });
+    }
+
+    // Select All / Deselect All layer options
+    if (btnSelectAllLayers) {
+        btnSelectAllLayers.addEventListener('click', () => {
+            layerCheckboxes.forEach(cb => cb.checked = true);
+        });
+    }
+    if (btnUnselectAllLayers) {
+        btnUnselectAllLayers.addEventListener('click', () => {
+            layerCheckboxes.forEach(cb => cb.checked = false);
+        });
     }
 
     // Theme toggle button action
