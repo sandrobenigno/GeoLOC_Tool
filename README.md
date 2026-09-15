@@ -21,24 +21,32 @@ Esta ferramenta separa automaticamente os valores em campos individuais de **Lat
 
 ## ✨ Funcionalidades Principais
 
-- 📱 **Interface Mobile-First**: Layout vertical e responsivo, botões grandes e fáceis de tocar no celular.
+- 📲 **Aplicativo Instalável (PWA)**: Pode ser instalado na tela inicial do celular Android, iOS ou desktop como um app nativo, funcionando 100% offline via Service Worker.
 - 🗺️ **Mapa Interativo (OpenStreetMap)**: Toque ou clique em qualquer local do mapa para obter e converter as coordenadas instantaneamente, sem necessidade de chaves de API pagas.
+- 📦 **Mapas Vetoriais Offline (IBGE + GeoJSON)**:
+  - Base vetorial leve do Brasil pré-instalada (~30 KB).
+  - Download sob demanda de malhas estaduais e divisões municipais da API do IBGE.
+  - Suporte para carregar seus próprios arquivos `.geojson` customizados (talhões, áreas de voo, limites).
+  - Armazenamento local ilimitado e persistente com **IndexedDB**.
 - 🛡️ **Zonas de Restrição DECEA (GeoAISWEB)**: Camada oficial WMS com visualização de Áreas Proibidas (P), Restritas (R), Perigosas (D), Zonas de Aeródromo (ATZ), CTR/TMA, traçado de pistas de pouso, cones de cabeceiras e helipontos.
-- ⚙️ **Painel de Configuração de Camadas**: Menu de ajustes (⚙️) para ligar/desligar individualmente cada tipo de restrição do espaço aéreo.
+- ⚙️ **Painel de Configurações**: Menus dedicados para gerenciar camadas do espaço aéreo e gerenciamento de mapas offline.
 - 🎯 **Geolocalização ("Onde estou?")**: Localize sua posição GPS atual com um toque e preencha os campos automaticamente.
 - 🌗 **Modo Claro / Modo Escuro**: Alternância dinâmica de temas (Sol/Lua) com ajuste de contraste do mapa em tempo real via filtros CSS.
 - 📋 **Atalhos Rápidos de Cópia**: Botões dedicados para copiar Latitude, Longitude ou ambos com feedback visual instantâneo ("Copiado!").
 - 🧠 **Parser Inteligente**: Aceita coordenadas coladas com vírgulas, espaços, ponto-e-vírgula, colchetes ou parênteses.
-- 💾 **Preferências Salvas**: Lembra do seu tema preferido e da seleção de camadas do DECEA via `localStorage`.
+- 💾 **Preferências Salvas**: Lembra do seu tema preferido, camadas ativas e mapas baixados via `localStorage` e `IndexedDB`.
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
-- **HTML5** semântico
+- **HTML5** semântico & **PWA Manifest**
+- **Service Worker** & **Cache API** (Offline-First)
+- **IndexedDB API** (Armazenamento de geometrias GeoJSON)
 - **CSS3** moderno (CSS Variables, Flexbox, Glassmorphism, Micro-animações)
 - **JavaScript (ES6+)** vanilla (sem frameworks pesados ou dependências externas)
 - **Leaflet.js** (v1.9.4) & **OpenStreetMap**
+- **API Malhas Geográficas IBGE** & **GeoAISWEB DECEA WMS**
 
 ---
 
@@ -47,19 +55,31 @@ Esta ferramenta separa automaticamente os valores em campos individuais de **Lat
 ```text
 GeoLOC/
 │
-├── index.html      # Estrutura da interface web
-├── style.css       # Estilização visual, temas (Dark/Light) e responsividade
-├── app.js          # Lógica de conversão, mapa e clipboard
-└── README.md       # Documentação do projeto
+├── index.html          # Estrutura da interface web e modais
+├── style.css           # Estilização visual, temas (Dark/Light) e responsividade
+├── app.js              # Lógica de conversão, mapa, IndexedDB e PWA
+├── manifest.json       # Manifesto PWA para instalação no Android/Desktop
+├── sw.js               # Service Worker para funcionamento offline
+├── data/
+│   └── brazil_base.json # Malha vetorial simplificada dos estados brasileiros
+├── icons/              # Ícones PWA em múltiplas resoluções (192x192, 512x512)
+└── README.md           # Documentação do projeto
 ```
+
+---
+
+## 📱 Como Instalar no Celular (PWA)
+
+1. Abra o link [https://sandrobenigno.github.io/GeoLOC_Tool/](https://sandrobenigno.github.io/GeoLOC_Tool/) no **Chrome** ou **Safari** do celular.
+2. Toque no menu do navegador (três pontinhos ou botão de compartilhar).
+3. Selecione **"Instalar aplicativo"** ou **"Adicionar à tela inicial"**.
+4. Pronto! O GeoLOC agora abre em tela cheia como um app nativo, mesmo sem internet.
 
 ---
 
 ## 💻 Como Executar Localmente
 
-Como o projeto é 100% estático (HTML/CSS/JS puros), basta abrir o arquivo `index.html` em qualquer navegador moderno.
-
-Se preferir rodar através de um servidor local:
+Como o projeto é 100% estático (HTML/CSS/JS puros), basta rodar através de um servidor local:
 
 ```bash
 # Com Python 3
@@ -76,3 +96,4 @@ Acesse em: `http://localhost:8000`
 ## 📄 Licença
 
 Este projeto é distribuído sob a licença [MIT](https://opensource.org/licenses/MIT).
+

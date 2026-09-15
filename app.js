@@ -1,3 +1,12 @@
+// PWA Service Worker Registration
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => {
+            console.warn('Service Worker registration failed:', err);
+        });
+    });
+}
+
 // DOM Elements
 const rawInput = document.getElementById('raw-input');
 const latOutput = document.getElementById('lat-output');
@@ -8,6 +17,20 @@ const btnCopyBoth = document.getElementById('btn-copy-both');
 const btnLocate = document.getElementById('btn-locate');
 const btnAirspace = document.getElementById('btn-airspace');
 const btnAirspaceConfig = document.getElementById('btn-airspace-config');
+const btnMapMode = document.getElementById('btn-map-mode');
+const mapModeIcon = document.getElementById('map-mode-icon');
+const mapModeText = document.getElementById('map-mode-text');
+const btnOfflineManager = document.getElementById('btn-offline-manager');
+const modalOfflineMaps = document.getElementById('modal-offline-maps');
+const btnCloseOfflineModal = document.getElementById('btn-close-offline-modal');
+const btnCloseOfflineModalBtn = document.getElementById('btn-close-offline-modal-btn');
+const btnDlBrazil = document.getElementById('btn-dl-brazil');
+const selectUF = document.getElementById('select-uf');
+const btnDlUF = document.getElementById('btn-dl-uf');
+const btnPickFile = document.getElementById('btn-pick-file');
+const fileInputGeojson = document.getElementById('file-input-geojson');
+const savedMapsList = document.getElementById('saved-maps-list');
+const offlineIndicator = document.getElementById('offline-indicator');
 const modalAirspace = document.getElementById('modal-airspace');
 const btnCloseModal = document.getElementById('btn-close-modal');
 const btnApplyModal = document.getElementById('btn-apply-modal');
@@ -25,13 +48,88 @@ let marker;
 let currentTileLayer;
 let deceaAirspaceLayer;
 let isAirspaceActive = false;
+let vectorLayer = null;
+let currentVectorGeoJSON = null;
+let currentMapMode = localStorage.getItem('geoloc_map_mode') || 'online'; // 'online' | 'offline'
+let activeMapId = localStorage.getItem('geoloc_active_map_id') || 'brazil_base';
+
+// IBGE State codes mapping
+const IBGE_UF_CODES = {
+    AC: 12, AL: 27, AP: 16, AM: 13, BA: 29, CE: 23, DF: 53, ES: 32, GO: 52,
+    MA: 21, MT: 51, MS: 50, MG: 31, PA: 15, PB: 25, PR: 41, PE: 26, PI: 22,
+    RJ: 33, RN: 24, RS: 43, RO: 11, RR: 14, SC: 42, SP: 35, SE: 28, TO: 17
+};
+
+// IndexedDB Helper for Offline Maps
+const DB_NAME = 'geoloc_maps_db';
+const DB_VERSION = 1;
+const STORE_NAME = 'maps';
+
+function openMapDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function saveMapToDB(id, name, type, geojson) {
+    const db = await openMapDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put({ id, name, type, geojson, date: new Date().toISOString() });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function getMapFromDB(id) {
+    const db = await openMapDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(id);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function getAllMapsFromDB() {
+    const db = await openMapDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function deleteMapFromDB(id) {
+    const db = await openMapDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
 
 // Initialization
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     loadLayerPreferences();
     initMap();
     initAirspaceLayer();
+    await initOfflineMaps();
     setupEventListeners();
 });
 
@@ -46,32 +144,276 @@ function initTheme() {
 function toggleTheme() {
     const isLight = document.body.classList.toggle('light-theme');
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    if (vectorLayer) {
+        vectorLayer.setStyle(getVectorStyle());
+    }
 }
 
 // Initialize Leaflet Map
 function initMap() {
-    // Standard starting coordinates centered in Brazil (Brasília)
     const defaultLat = -15.793889;
     const defaultLng = -47.882778;
     const defaultZoom = 4;
 
-    // Create the map
     map = L.map('map', {
         zoomControl: true,
-        tap: true // Enables touch events on mobile
+        tap: true
     }).setView([defaultLat, defaultLng], defaultZoom);
 
-    // Standard OpenStreetMap tiles - 100% free and open, zero API key required anywhere
+    // Standard OpenStreetMap tiles
     currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19
-    }).addTo(map);
+    });
 
-    // Try to auto-locate user on startup for convenience
+    if (currentMapMode === 'online') {
+        currentTileLayer.addTo(map);
+    }
+
     tryGeolocation(true);
 }
 
-// Get active selected WMS layers list from modal checkboxes
+// Vector Layer Styling
+function getVectorStyle() {
+    const isLight = document.body.classList.contains('light-theme');
+    return {
+        fillColor: isLight ? '#0891b2' : '#06b6d4',
+        weight: 1.5,
+        opacity: 0.85,
+        color: isLight ? '#0e7490' : '#22d3ee',
+        fillOpacity: isLight ? 0.08 : 0.12,
+        className: 'vector-state-polygon'
+    };
+}
+
+// Render GeoJSON Vector Layer on Leaflet
+function renderVectorLayer(geojsonData) {
+    if (vectorLayer) {
+        map.removeLayer(vectorLayer);
+        vectorLayer = null;
+    }
+    if (!geojsonData) return;
+
+    currentVectorGeoJSON = geojsonData;
+    vectorLayer = L.geoJSON(geojsonData, {
+        style: getVectorStyle,
+        onEachFeature: (feature, layer) => {
+            const props = feature.properties || {};
+            const name = props.nome || props.name || props.NM_ESTADO || props.NM_MUN || props.CD_UF || props.id || 'Região';
+            layer.bindTooltip(name, { sticky: true });
+            layer.on('click', (e) => {
+                handleMapClick(e);
+            });
+        }
+    });
+
+    if (currentMapMode === 'offline') {
+        vectorLayer.addTo(map);
+    }
+}
+
+// Load Active Vector Map from IndexedDB or local file
+async function loadActiveVectorMap(targetMapId = null) {
+    const mapIdToLoad = targetMapId || activeMapId;
+    let mapData = await getMapFromDB(mapIdToLoad);
+
+    if (!mapData) {
+        // Fallback: try to fetch built-in brazil_base.json
+        try {
+            const resp = await fetch('./data/brazil_base.json');
+            if (resp.ok) {
+                const baseGeo = await resp.json();
+                await saveMapToDB('brazil_base', '🇧🇷 Brasil Geral (Estados)', 'ibge_base', baseGeo);
+                mapData = { id: 'brazil_base', geojson: baseGeo };
+            }
+        } catch (e) {
+            console.warn('Could not load default brazil_base.json:', e);
+        }
+    }
+
+    if (mapData && mapData.geojson) {
+        activeMapId = mapData.id;
+        localStorage.setItem('geoloc_active_map_id', activeMapId);
+        renderVectorLayer(mapData.geojson);
+        renderSavedMapsList();
+    }
+}
+
+// Initialize Offline Maps Subsystem
+async function initOfflineMaps() {
+    await loadActiveVectorMap();
+    setMapMode(currentMapMode, false);
+}
+
+// Map Mode Switcher (Online OSM <-> Offline Vector)
+function setMapMode(mode, showNotification = true) {
+    currentMapMode = mode;
+    localStorage.setItem('geoloc_map_mode', mode);
+
+    if (mode === 'offline') {
+        if (currentTileLayer && map.hasLayer(currentTileLayer)) {
+            map.removeLayer(currentTileLayer);
+        }
+        if (vectorLayer && !map.hasLayer(vectorLayer)) {
+            vectorLayer.addTo(map);
+        } else if (!vectorLayer) {
+            loadActiveVectorMap();
+        }
+        if (btnMapMode) btnMapMode.classList.add('active');
+        if (mapModeIcon) mapModeIcon.textContent = '📐';
+        if (mapModeText) mapModeText.textContent = 'Vetorial';
+        if (offlineIndicator) offlineIndicator.style.display = 'flex';
+        if (showNotification) showToast('Modo Vetorial Offline ativado');
+    } else {
+        if (vectorLayer && map.hasLayer(vectorLayer)) {
+            map.removeLayer(vectorLayer);
+        }
+        if (currentTileLayer && !map.hasLayer(currentTileLayer)) {
+            currentTileLayer.addTo(map);
+        }
+        if (btnMapMode) btnMapMode.classList.remove('active');
+        if (mapModeIcon) mapModeIcon.textContent = '🌐';
+        if (mapModeText) mapModeText.textContent = 'Online';
+        if (offlineIndicator) offlineIndicator.style.display = 'none';
+        if (showNotification) showToast('Modo Online (OpenStreetMap) ativado');
+    }
+}
+
+function toggleMapMode() {
+    setMapMode(currentMapMode === 'online' ? 'offline' : 'online');
+}
+
+// Download Brazil Base Mesh from IBGE API
+async function downloadBrazilBase() {
+    btnDlBrazil.disabled = true;
+    btnDlBrazil.textContent = 'Baixando... ⏳';
+    try {
+        const url = 'https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/json&qualidade=minima&intrarregiao=UF';
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('Falha ao baixar dados do IBGE');
+        const geojson = await resp.json();
+        await saveMapToDB('brazil_base', '🇧🇷 Brasil Geral (Estados)', 'ibge_base', geojson);
+        await loadActiveVectorMap('brazil_base');
+        showToast('Mapa do Brasil salvo para uso offline!');
+    } catch (e) {
+        console.error(e);
+        showToast('Erro ao baixar mapa do Brasil.', 'error');
+    } finally {
+        btnDlBrazil.disabled = false;
+        btnDlBrazil.textContent = '🇧🇷 Baixar Mapa do Brasil (30 KB)';
+    }
+}
+
+// Download State Municipalities from IBGE API
+async function downloadStateMesh() {
+    const uf = selectUF.value;
+    if (!uf) return;
+
+    const ufCode = IBGE_UF_CODES[uf];
+    if (!ufCode) return;
+
+    btnDlUF.disabled = true;
+    btnDlUF.textContent = 'Baixando... ⏳';
+
+    try {
+        const url = `https://servicodados.ibge.gov.br/api/v3/malhas/estados/${ufCode}?formato=application/json&qualidade=minima&intrarregiao=municipio`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`Falha ao baixar municípios de ${uf}`);
+        const geojson = await resp.json();
+        const mapId = `uf_${uf.toLowerCase()}`;
+        const mapName = `📍 Municípios - ${uf}`;
+        await saveMapToDB(mapId, mapName, 'ibge_uf', geojson);
+        await loadActiveVectorMap(mapId);
+        showToast(`Municípios de ${uf} baixados e ativados!`);
+    } catch (e) {
+        console.error(e);
+        showToast(`Erro ao baixar municípios de ${uf}.`, 'error');
+    } finally {
+        btnDlUF.disabled = false;
+        btnDlUF.textContent = 'Baixar Municípios';
+    }
+}
+
+// Pick custom GeoJSON from local device storage
+function handleCustomFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const geojson = JSON.parse(e.target.result);
+            if (!geojson || (!geojson.type && !geojson.features)) {
+                throw new Error('Arquivo não possui formato GeoJSON válido.');
+            }
+            const mapId = `custom_${Date.now()}`;
+            const mapName = `📁 ${file.name}`;
+            await saveMapToDB(mapId, mapName, 'custom', geojson);
+            await loadActiveVectorMap(mapId);
+            showToast(`Mapa "${file.name}" carregado com sucesso!`);
+        } catch (err) {
+            console.error(err);
+            showToast('Erro ao ler arquivo GeoJSON.', 'error');
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
+// Render Saved Maps List in Offline Modal
+async function renderSavedMapsList() {
+    if (!savedMapsList) return;
+    const maps = await getAllMapsFromDB();
+
+    if (maps.length === 0) {
+        savedMapsList.innerHTML = '<div class="empty-maps-msg">Nenhum mapa salvo adicional. O mapa base do Brasil está disponível.</div>';
+        return;
+    }
+
+    savedMapsList.innerHTML = '';
+    maps.forEach(m => {
+        const item = document.createElement('div');
+        const isActive = (m.id === activeMapId);
+        item.className = `saved-map-item ${isActive ? 'active-map' : ''}`;
+
+        const sizeKb = Math.round(JSON.stringify(m.geojson).length / 1024);
+
+        item.innerHTML = `
+            <div class="map-item-info">
+                <span class="map-item-name">${m.name} ${isActive ? '<span style="color:var(--accent-color);font-size:0.75rem;">(Ativo)</span>' : ''}</span>
+                <span class="map-item-meta">${sizeKb} KB • ${new Date(m.date).toLocaleDateString()}</span>
+            </div>
+            <div class="map-item-actions">
+                ${!isActive ? `<button class="btn-map-use" data-id="${m.id}">Usar</button>` : ''}
+                ${m.id !== 'brazil_base' ? `<button class="btn-map-delete" data-id="${m.id}">🗑️</button>` : ''}
+            </div>
+        `;
+
+        const useBtn = item.querySelector('.btn-map-use');
+        if (useBtn) {
+            useBtn.addEventListener('click', async () => {
+                await loadActiveVectorMap(m.id);
+                showToast(`Mapa "${m.name}" ativado`);
+            });
+        }
+
+        const delBtn = item.querySelector('.btn-map-delete');
+        if (delBtn) {
+            delBtn.addEventListener('click', async () => {
+                await deleteMapFromDB(m.id);
+                if (activeMapId === m.id) {
+                    await loadActiveVectorMap('brazil_base');
+                }
+                renderSavedMapsList();
+                showToast(`Mapa excluído`);
+            });
+        }
+
+        savedMapsList.appendChild(item);
+    });
+}
+
+// DECEA Airspace Management
 function getActiveLayersList() {
     const activeLayers = [];
     layerCheckboxes.forEach(cb => {
@@ -82,7 +424,6 @@ function getActiveLayersList() {
     return activeLayers.join(',');
 }
 
-// Initialize DECEA Airspace WMS Layer
 function initAirspaceLayer() {
     const layersParam = getActiveLayersList() || 'ICA:eac_r,ICA:eac_p,ICA:eac_d';
     deceaAirspaceLayer = L.tileLayer.wms('https://geoaisweb.decea.mil.br/geoserver/wms', {
@@ -96,7 +437,6 @@ function initAirspaceLayer() {
     });
 }
 
-// Update active layers dynamically
 function updateAirspaceLayer() {
     const activeLayers = getActiveLayersList();
     if (deceaAirspaceLayer) {
@@ -113,7 +453,6 @@ function updateAirspaceLayer() {
     }
 }
 
-// Toggle Airspace restriction layer visibility
 function toggleAirspace() {
     isAirspaceActive = !isAirspaceActive;
 
@@ -143,7 +482,6 @@ function toggleAirspace() {
     }
 }
 
-// Layer Preferences Persistence
 function saveLayerPreferences() {
     const prefs = {};
     layerCheckboxes.forEach(cb => {
@@ -179,46 +517,34 @@ function closeModal() {
     updateAirspaceLayer();
 }
 
+function openOfflineModal() {
+    renderSavedMapsList();
+    if (modalOfflineMaps) modalOfflineMaps.style.display = 'flex';
+}
+
+function closeOfflineModal() {
+    if (modalOfflineMaps) modalOfflineMaps.style.display = 'none';
+}
+
 // Setup Event Listeners
 function setupEventListeners() {
-    // Capture input in real-time
     rawInput.addEventListener('input', handleInputChange);
-    
-    // Paste handler to trim and trigger parsing
-    rawInput.addEventListener('paste', () => {
-        setTimeout(handleInputChange, 10);
-    });
+    rawInput.addEventListener('paste', () => setTimeout(handleInputChange, 10));
 
-    // Map click capturing coordinates
     map.on('click', handleMapClick);
 
-    // Locate button action
-    btnLocate.addEventListener('click', () => {
-        tryGeolocation(false);
-    });
+    btnLocate.addEventListener('click', () => tryGeolocation(false));
 
-    // Airspace restriction layer toggle action
-    if (btnAirspace) {
-        btnAirspace.addEventListener('click', toggleAirspace);
-    }
-
-    // Airspace Config modal actions
-    if (btnAirspaceConfig) {
-        btnAirspaceConfig.addEventListener('click', openModal);
-    }
-    if (btnCloseModal) {
-        btnCloseModal.addEventListener('click', closeModal);
-    }
-    if (btnApplyModal) {
-        btnApplyModal.addEventListener('click', closeModal);
-    }
+    if (btnAirspace) btnAirspace.addEventListener('click', toggleAirspace);
+    if (btnAirspaceConfig) btnAirspaceConfig.addEventListener('click', openModal);
+    if (btnCloseModal) btnCloseModal.addEventListener('click', closeModal);
+    if (btnApplyModal) btnApplyModal.addEventListener('click', closeModal);
     if (modalAirspace) {
         modalAirspace.addEventListener('click', (e) => {
             if (e.target === modalAirspace) closeModal();
         });
     }
 
-    // Select All / Deselect All layer options
     if (btnSelectAllLayers) {
         btnSelectAllLayers.addEventListener('click', () => {
             layerCheckboxes.forEach(cb => cb.checked = true);
@@ -230,13 +556,41 @@ function setupEventListeners() {
         });
     }
 
-    // Theme toggle button action
-    btnThemeToggle.addEventListener('click', toggleTheme);
+    // Offline Map controls
+    if (btnMapMode) btnMapMode.addEventListener('click', toggleMapMode);
+    if (btnOfflineManager) btnOfflineManager.addEventListener('click', openOfflineModal);
+    if (btnCloseOfflineModal) btnCloseOfflineModal.addEventListener('click', closeOfflineModal);
+    if (btnCloseOfflineModalBtn) btnCloseOfflineModalBtn.addEventListener('click', closeOfflineModal);
+    if (modalOfflineMaps) {
+        modalOfflineMaps.addEventListener('click', (e) => {
+            if (e.target === modalOfflineMaps) closeOfflineModal();
+        });
+    }
 
-    // Clear all action
+    if (btnDlBrazil) btnDlBrazil.addEventListener('click', downloadBrazilBase);
+    if (selectUF) {
+        selectUF.addEventListener('change', () => {
+            btnDlUF.disabled = !selectUF.value;
+        });
+    }
+    if (btnDlUF) btnDlUF.addEventListener('click', downloadStateMesh);
+
+    if (btnPickFile) btnPickFile.addEventListener('click', () => fileInputGeojson.click());
+    if (fileInputGeojson) fileInputGeojson.addEventListener('change', handleCustomFileUpload);
+
+    // Auto-detect offline status
+    window.addEventListener('offline', () => {
+        showToast('Sem conexão de internet. Alternando para mapa vetorial...', 'error');
+        setMapMode('offline');
+    });
+
+    window.addEventListener('online', () => {
+        showToast('Conexão de internet restabelecida.');
+    });
+
+    btnThemeToggle.addEventListener('click', toggleTheme);
     btnClear.addEventListener('click', clearAll);
 
-    // Copy actions
     btnCopyLat.addEventListener('click', () => copyToClipboard(latOutput.value, btnCopyLat, 'Latitude copiada!'));
     btnCopyLng.addEventListener('click', () => copyToClipboard(lngOutput.value, btnCopyLng, 'Longitude copiada!'));
     btnCopyBoth.addEventListener('click', () => {
@@ -248,7 +602,6 @@ function setupEventListeners() {
 // Handle Manual Inputs
 function handleInputChange() {
     const value = rawInput.value.trim();
-    
     if (value === '') {
         clearOutputs();
         btnClear.style.display = 'none';
@@ -262,7 +615,6 @@ function handleInputChange() {
         updateOutputs(coords.lat, coords.lng);
         updateMapMarker(coords.lat, coords.lng, true);
     } else {
-        // Clear outputs if coordinates format is invalid
         clearOutputs();
     }
 }
@@ -272,7 +624,6 @@ function handleMapClick(e) {
     const lat = e.latlng.lat;
     const lng = e.latlng.lng;
     
-    // Set raw input text to show standard dot format
     rawInput.value = `${lat.toFixed(14)}, ${lng.toFixed(14)}`;
     btnClear.style.display = 'inline-block';
     
@@ -287,7 +638,6 @@ function tryGeolocation(isSilentOnFail = false) {
         return;
     }
 
-    // Set high accuracy and a reasonable timeout
     const options = {
         enableHighAccuracy: true,
         timeout: 8000,
@@ -322,67 +672,53 @@ function tryGeolocation(isSilentOnFail = false) {
     );
 }
 
-// Parse input coordinates and extract numeric segments
+// Parse Coordinates
 function parseCoordinates(inputStr) {
-    // Normalizes input standard (replaces semicolons, brackets, etc.)
     const cleanStr = inputStr
-        .replace(/[()\[\]{}]/g, ' ') // remove brackets
-        .replace(/;/g, ' ')          // replace semicolons with space
+        .replace(/[()\[\]{}]/g, ' ')
+        .replace(/;/g, ' ')
         .trim();
         
-    // Regex matches coordinate numbers like -20.464431 or 12.3456
-    // We target both standard decimals and coordinates with comma (if already formatted)
     const regexDecimal = /-?\d+\.\d+/g;
     let matches = cleanStr.match(regexDecimal);
     
     if (matches && matches.length >= 2) {
-        return {
-            lat: matches[0],
-            lng: matches[1]
-        };
+        return { lat: matches[0], lng: matches[1] };
     }
     
-    // Fallback: If they use commas as decimal point and space/semicolon as separator
-    // Ex: "-20,464431 -45,951409"
     const parsedWithCommaDecimals = cleanStr.replace(/,/g, '.');
     matches = parsedWithCommaDecimals.match(regexDecimal);
     
     if (matches && matches.length >= 2) {
-        return {
-            lat: matches[0],
-            lng: matches[1]
-        };
+        return { lat: matches[0], lng: matches[1] };
     }
 
     return null;
 }
 
-// Update UI output fields
+// Update Output Fields
 function updateOutputs(latStr, lngStr) {
-    // Convert dot decimals to Portuguese/BR comma format
     const formattedLat = latStr.replace('.', ',');
     const formattedLng = lngStr.replace('.', ',');
 
     latOutput.value = formattedLat;
     lngOutput.value = formattedLng;
 
-    // Enable Buttons
     btnCopyLat.disabled = false;
     btnCopyLng.disabled = false;
     btnCopyBoth.disabled = false;
 }
 
-// Clear outputs and reset state
+// Clear Outputs
 function clearOutputs() {
     latOutput.value = '';
     lngOutput.value = '';
-    
     btnCopyLat.disabled = true;
     btnCopyLng.disabled = true;
     btnCopyBoth.disabled = true;
 }
 
-// Clear all inputs and reset marker
+// Clear All
 function clearAll() {
     rawInput.value = '';
     clearOutputs();
@@ -394,7 +730,7 @@ function clearAll() {
     }
 }
 
-// Manage Map Marker placement and pan
+// Update Map Marker
 function updateMapMarker(lat, lng, shouldPan = true, zoomLevel = null) {
     const latNum = parseFloat(lat);
     const lngNum = parseFloat(lng);
@@ -404,7 +740,6 @@ function updateMapMarker(lat, lng, shouldPan = true, zoomLevel = null) {
     if (marker) {
         marker.setLatLng([latNum, lngNum]);
     } else {
-        // Create custom neon-blue icon to match premium visual design
         const customIcon = L.divIcon({
             className: 'custom-map-pin',
             html: `<div style="
@@ -426,25 +761,21 @@ function updateMapMarker(lat, lng, shouldPan = true, zoomLevel = null) {
         if (zoomLevel) {
             map.setView([latNum, lngNum], zoomLevel);
         } else {
-            // Pan smoothly, auto increase zoom if it's too far out
             const currentZoom = map.getZoom();
             map.setView([latNum, lngNum], Math.max(currentZoom, 12));
         }
     }
 }
 
-// Copy values to clipboard
+// Clipboard Helper
 function copyToClipboard(text, triggerButton, successMessage) {
     if (!text) return;
 
-    // Use Modern Clipboard API
     navigator.clipboard.writeText(text).then(
         () => {
-            // Visual feedback on button
             triggerButton.classList.add('copied');
             const originalHTML = triggerButton.innerHTML;
             
-            // Temporary replacement
             triggerButton.innerHTML = `
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12"></polyline>
@@ -466,7 +797,7 @@ function copyToClipboard(text, triggerButton, successMessage) {
     );
 }
 
-// Toast notification helper
+// Toast Notifications Helper
 function showToast(message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast ${type === 'error' ? 'toast-error' : ''}`;
@@ -489,7 +820,6 @@ function showToast(message, type = 'success') {
 
     toastContainer.appendChild(toast);
 
-    // Auto-remove after animation finishes
     setTimeout(() => {
         toast.classList.add('fade-out');
         toast.addEventListener('animationend', () => {

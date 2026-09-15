@@ -894,10 +894,225 @@ body.light-theme .layer-toggle-item {
     border-color: rgba(0, 0, 0, 0.06);
 }
 
-body.light-theme .layer-toggle-item:hover {
-    background: rgba(0, 0, 0, 0.05);
-}
-
 body.light-theme .modal-footer {
     background: rgba(0, 0, 0, 0.02);
 }
+
+/* Offline Map Indicator */
+.offline-indicator {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #f59e0b;
+    padding: 6px 12px;
+    border-radius: var(--border-radius-md);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Offline Modal Styles */
+.offline-section-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--border-radius-md);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.offline-section-box h4 {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.modal-subtext {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.offline-download-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.state-download-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.select-modern {
+    flex: 1;
+    background-color: rgba(10, 11, 18, 0.7);
+    border: 1px solid var(--card-border);
+    border-radius: var(--border-radius-md);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.select-modern:focus {
+    border-color: var(--accent-color);
+}
+
+body.light-theme .select-modern {
+    background-color: #ffffff;
+    border-color: rgba(0, 0, 0, 0.12);
+    color: var(--text-primary);
+}
+
+.btn-secondary-action {
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    padding: 8px 14px;
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: inherit;
+    font-weight: 500;
+}
+
+.btn-secondary-action:hover:not(:disabled) {
+    background-color: rgba(6, 182, 212, 0.12);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.btn-secondary-action:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-full {
+    width: 100%;
+}
+
+/* Saved Maps List (IndexedDB) */
+.saved-maps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.empty-maps-msg {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    text-align: center;
+    padding: 8px 0;
+}
+
+.saved-map-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    transition: var(--transition-smooth);
+}
+
+.saved-map-item.active-map {
+    border-color: var(--accent-color);
+    background: rgba(6, 182, 212, 0.08);
+}
+
+.map-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.map-item-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.map-item-meta {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.map-item-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.btn-map-use {
+    background: rgba(6, 182, 212, 0.15);
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.btn-map-use:hover {
+    background: var(--accent-color);
+    color: #0b0c10;
+}
+
+.btn-map-delete {
+    background: none;
+    border: none;
+    color: var(--danger-color);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 4px;
+}
+
+.btn-map-delete:hover {
+    background: rgba(244, 63, 94, 0.15);
+}
+
+/* Vector GeoJSON Polygon Styling */
+.vector-state-polygon {
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    transition: fill-opacity 0.2s ease, stroke-width 0.2s ease;
+}
+
+.vector-state-polygon:hover {
+    fill-opacity: 0.35 !important;
+    stroke-width: 2.5px !important;
+}
+
+body.light-theme .offline-section-box {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.06);
+}
+
+body.light-theme .saved-map-item {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.06);
+}
+

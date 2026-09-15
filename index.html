@@ -14,6 +14,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     
+    <!-- PWA Manifest & Mobile Meta -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GeoLOC">
+    
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
@@ -56,8 +63,19 @@
             <!-- Seção do Mapa -->
             <section class="card map-card" id="map-section">
                 <div class="card-header">
-                    <h2><span class="indicator-dot"></span> Mapa Interativo</h2>
+                    <h2><span class="indicator-dot"></span> Mapa</h2>
                     <div class="map-controls">
+                        <button id="btn-map-mode" class="btn btn-icon-small" title="Alternar entre Mapa Online (OSM) e Vetorial Offline">
+                            <span id="map-mode-icon">🌐</span>
+                            <span id="map-mode-text">Online</span>
+                        </button>
+                        <button id="btn-offline-manager" class="btn btn-icon-round" title="Gerenciador de Mapas Offline">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </button>
                         <button id="btn-airspace" class="btn btn-icon-small" title="Exibir zonas de restrição do DECEA">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -82,6 +100,9 @@
                             <span>Onde estou?</span>
                         </button>
                     </div>
+                </div>
+                <div id="offline-indicator" class="offline-indicator" style="display: none;">
+                    <span>📡 Modo Vetorial Offline (Sem Internet)</span>
                 </div>
                 <div id="map"></div>
                 <div class="map-hint">Toque no mapa para capturar a coordenada</div>
@@ -232,6 +253,85 @@
                     <button id="btn-unselect-all-layers" class="btn btn-text-small">Desmarcar</button>
                 </div>
                 <button id="btn-apply-modal" class="btn btn-primary btn-modal-apply">Concluído</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Gerenciamento de Mapas Offline -->
+    <div id="modal-offline-maps" class="modal-backdrop" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><span class="indicator-dot"></span> Mapas Vetoriais Offline</h3>
+                <button id="btn-close-offline-modal" class="btn-close-modal" aria-label="Fechar">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">Baixe malhas municipais do IBGE ou aponte para um arquivo GeoJSON/KML salvo no seu aparelho para navegar sem internet:</p>
+                
+                <!-- Opção 1: Download de Malhas IBGE -->
+                <div class="offline-section-box">
+                    <h4>📥 1. Baixar Malhas Oficiais (IBGE)</h4>
+                    <div class="offline-download-controls">
+                        <button id="btn-dl-brazil" class="btn btn-secondary-action">
+                            🇧🇷 Baixar Mapa do Brasil (30 KB)
+                        </button>
+                        <div class="state-download-row">
+                            <select id="select-uf" class="select-modern">
+                                <option value="">Selecione o Estado (UF)...</option>
+                                <option value="AC">Acre (AC)</option>
+                                <option value="AL">Alagoas (AL)</option>
+                                <option value="AP">Amapá (AP)</option>
+                                <option value="AM">Amazonas (AM)</option>
+                                <option value="BA">Bahia (BA)</option>
+                                <option value="CE">Ceará (CE)</option>
+                                <option value="DF">Distrito Federal (DF)</option>
+                                <option value="ES">Espírito Santo (ES)</option>
+                                <option value="GO">Goiás (GO)</option>
+                                <option value="MA">Maranhão (MA)</option>
+                                <option value="MT">Mato Grosso (MT)</option>
+                                <option value="MS">Mato Grosso do Sul (MS)</option>
+                                <option value="MG">Minas Gerais (MG)</option>
+                                <option value="PA">Pará (PA)</option>
+                                <option value="PB">Paraíba (PB)</option>
+                                <option value="PR">Paraná (PR)</option>
+                                <option value="PE">Pernambuco (PE)</option>
+                                <option value="PI">Piauí (PI)</option>
+                                <option value="RJ">Rio de Janeiro (RJ)</option>
+                                <option value="RN">Rio Grande do Norte (RN)</option>
+                                <option value="RS">Rio Grande do Sul (RS)</option>
+                                <option value="RO">Rondônia (RO)</option>
+                                <option value="RR">Roraima (RR)</option>
+                                <option value="SC">Santa Catarina (SC)</option>
+                                <option value="SP">São Paulo (SP)</option>
+                                <option value="SE">Sergipe (SE)</option>
+                                <option value="TO">Tocantins (TO)</option>
+                            </select>
+                            <button id="btn-dl-uf" class="btn btn-secondary-action" disabled>
+                                Baixar Municípios
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Opção 2: Carregar Arquivo do Aparelho -->
+                <div class="offline-section-box">
+                    <h4>📂 2. Carregar Arquivo do Dispositivo</h4>
+                    <p class="modal-subtext">Aponte para um arquivo <code>.geojson</code> ou <code>.json</code> na memória do celular/PC:</p>
+                    <input type="file" id="file-input-geojson" accept=".geojson,.json" style="display: none;">
+                    <button id="btn-pick-file" class="btn btn-secondary-action btn-full">
+                        📁 Selecionar Arquivo Local
+                    </button>
+                </div>
+
+                <!-- Opção 3: Mapas Salvos na Memória (IndexedDB) -->
+                <div class="offline-section-box">
+                    <h4>💾 3. Mapas Salvos na Memória do Aparelho</h4>
+                    <div id="saved-maps-list" class="saved-maps-list">
+                        <div class="empty-maps-msg">Carregando mapas salvos...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-close-offline-modal-btn" class="btn btn-primary btn-modal-apply">Concluído</button>
             </div>
         </div>
     </div>
