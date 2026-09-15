@@ -212,7 +212,7 @@ function initMap() {
 
     map = L.map('map', {
         zoomControl: true,
-        tap: true
+        tap: false
     }).setView([defaultLat, defaultLng], defaultZoom);
 
     // Standard OpenStreetMap tiles
