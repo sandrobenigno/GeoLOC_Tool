@@ -2,10 +2,6 @@
 
 > Ferramenta web ágil e moderna para conversão, captura e formatação de coordenadas geográficas no padrão brasileiro (vírgula decimal), com foco em dispositivos móveis e integração cartográfica.
 
-🔗 **Acesse online:** **[https://sandrobenigno.github.io/GeoLOC_Tool/](https://sandrobenigno.github.io/GeoLOC_Tool/)**
-
----
-
 ## 🚀 Sobre o Projeto
 
 O **GeoLOC** foi desenvolvido para simplificar o trabalho de pilotos de drones, topógrafos, engenheiros e usuários de sistemas como o **SARPAS (DECEA)**, Google Earth e ferramentas GIS.
@@ -14,6 +10,10 @@ Frequentemente, coordenadas copiadas de mapas (como Google Maps ou GPS) vêm no 
 `-20.464431484462686, -45.951409846570364`
 
 Esta ferramenta separa automaticamente os valores em campos individuais de **Latitude** e **Longitude** e converte o ponto decimal (`.`) para a vírgula (`,'`), pronta para colagem em formulários técnicos brasileiros.
+
+---
+
+🔗 **Acesse online:** **[https://sandrobenigno.github.io/GeoLOC_Tool/](https://sandrobenigno.github.io/GeoLOC_Tool/)**
 
 ---
 
