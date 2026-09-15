@@ -287,9 +287,10 @@
                         <button id="btn-dl-brazil" class="btn btn-secondary-action">
                             🇧🇷 Baixar Mapa do Brasil (30 KB)
                         </button>
+                        
                         <div class="state-download-row">
                             <select id="select-uf" class="select-modern">
-                                <option value="">Selecione o Estado (UF)...</option>
+                                <option value="">1. Selecione o Estado (UF)...</option>
                                 <option value="AC">Acre (AC)</option>
                                 <option value="AL">Alagoas (AL)</option>
                                 <option value="AP">Amapá (AP)</option>
@@ -318,8 +319,18 @@
                                 <option value="SE">Sergipe (SE)</option>
                                 <option value="TO">Tocantins (TO)</option>
                             </select>
-                            <button id="btn-dl-uf" class="btn btn-secondary-action" disabled>
-                                Baixar Municípios
+                            <button id="btn-dl-uf" class="btn btn-secondary-action" disabled title="Baixar todos os municípios deste estado">
+                                📥 Baixar Estado
+                            </button>
+                        </div>
+
+                        <!-- Download de Cidade Específica -->
+                        <div class="state-download-row">
+                            <select id="select-city" class="select-modern" disabled>
+                                <option value="">2. Selecione a Cidade...</option>
+                            </select>
+                            <button id="btn-dl-city" class="btn btn-secondary-action" disabled title="Baixar contorno oficial desta cidade em qualidade máxima">
+                                🏙️ Baixar Cidade
                             </button>
                         </div>
                     </div>

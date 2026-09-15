@@ -26,6 +26,8 @@ const btnCloseOfflineModalBtn = document.getElementById('btn-close-offline-modal
 const btnDlBrazil = document.getElementById('btn-dl-brazil');
 const selectUF = document.getElementById('select-uf');
 const btnDlUF = document.getElementById('btn-dl-uf');
+const selectCity = document.getElementById('select-city');
+const btnDlCity = document.getElementById('btn-dl-city');
 const btnPickFile = document.getElementById('btn-pick-file');
 const fileInputGeojson = document.getElementById('file-input-geojson');
 const savedMapsList = document.getElementById('saved-maps-list');
@@ -350,6 +352,47 @@ async function downloadBrazilBase() {
     }
 }
 
+// Load cities for selected UF
+async function loadCitiesForUF() {
+    if (!selectUF || !selectCity) return;
+    const uf = selectUF.value;
+    
+    if (!uf) {
+        if (btnDlUF) btnDlUF.disabled = true;
+        selectCity.disabled = true;
+        selectCity.innerHTML = '<option value="">2. Selecione a Cidade...</option>';
+        if (btnDlCity) btnDlCity.disabled = true;
+        return;
+    }
+
+    if (btnDlUF) btnDlUF.disabled = false;
+    const ufCode = IBGE_UF_CODES[uf];
+    if (!ufCode) return;
+
+    selectCity.disabled = true;
+    selectCity.innerHTML = '<option value="">Carregando cidades do IBGE... ⏳</option>';
+    if (btnDlCity) btnDlCity.disabled = true;
+
+    try {
+        const url = `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${ufCode}/municipios?orderBy=nome`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('Falha ao carregar lista de municípios');
+        const cities = await resp.json();
+
+        selectCity.innerHTML = '<option value="">2. Selecione a Cidade...</option>';
+        cities.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.nome;
+            selectCity.appendChild(opt);
+        });
+        selectCity.disabled = false;
+    } catch (err) {
+        console.error(err);
+        selectCity.innerHTML = '<option value="">Erro ao carregar cidades</option>';
+    }
+}
+
 // Download State Municipalities from IBGE API
 async function downloadStateMesh() {
     if (!selectUF || !btnDlUF) return;
@@ -389,7 +432,50 @@ async function downloadStateMesh() {
         showToast(`Erro ao baixar municípios de ${uf}.`, 'error');
     } finally {
         btnDlUF.disabled = false;
-        btnDlUF.textContent = 'Baixar Municípios';
+        btnDlUF.textContent = '📥 Baixar Estado';
+    }
+}
+
+// Download Specific Municipality in Maximum Quality
+async function downloadCityMesh() {
+    if (!selectCity || !btnDlCity || !selectUF) return;
+    const cityId = selectCity.value;
+    const uf = selectUF.value;
+    const cityName = selectCity.options[selectCity.selectedIndex]?.text;
+    
+    if (!cityId || !cityName) return;
+
+    btnDlCity.disabled = true;
+    btnDlCity.textContent = 'Baixando... ⏳';
+
+    try {
+        const url = `https://servicodados.ibge.gov.br/api/v3/malhas/municipios/${cityId}?formato=application/vnd.geo+json&qualidade=maxima`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`Falha ao baixar malha de ${cityName}`);
+        const geojson = await resp.json();
+
+        if (!geojson || !geojson.features) {
+            throw new Error('Formato GeoJSON inválido recebido do IBGE.');
+        }
+
+        const mapId = `mun_${cityId}`;
+        const mapName = `🏙️ ${cityName} (${uf}) - Alta Resolução`;
+        await saveMapToDB(mapId, mapName, 'ibge_city', geojson);
+        await loadActiveVectorMap(mapId);
+        setMapMode('offline');
+
+        // Fit map bounds to city
+        if (vectorLayer && vectorLayer.getBounds().isValid()) {
+            map.fitBounds(vectorLayer.getBounds(), { padding: [30, 30] });
+        }
+
+        showToast(`Município de ${cityName} (${uf}) baixado em alta resolução!`);
+    } catch (e) {
+        console.error(e);
+        showToast(`Erro ao baixar município de ${cityName}.`, 'error');
+    } finally {
+        btnDlCity.disabled = false;
+        btnDlCity.textContent = '🏙️ Baixar Cidade';
     }
 }
 
@@ -636,12 +722,18 @@ function setupEventListeners() {
     }
 
     if (btnDlBrazil) btnDlBrazil.addEventListener('click', downloadBrazilBase);
+    
     if (selectUF) {
-        selectUF.addEventListener('change', () => {
-            if (btnDlUF) btnDlUF.disabled = !selectUF.value;
-        });
+        selectUF.addEventListener('change', loadCitiesForUF);
     }
     if (btnDlUF) btnDlUF.addEventListener('click', downloadStateMesh);
+
+    if (selectCity) {
+        selectCity.addEventListener('change', () => {
+            if (btnDlCity) btnDlCity.disabled = !selectCity.value;
+        });
+    }
+    if (btnDlCity) btnDlCity.addEventListener('click', downloadCityMesh);
 
     if (btnPickFile) btnPickFile.addEventListener('click', () => fileInputGeojson.click());
     if (fileInputGeojson) fileInputGeojson.addEventListener('change', handleCustomFileUpload);
