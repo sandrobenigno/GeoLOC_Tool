@@ -1,4 +1,4 @@
-# 📍 SARPAS Tool - GeoPontos
+# 📍 GeoLOC
 
 > Ferramenta web ágil e moderna para conversão, captura e formatação de coordenadas geográficas no padrão brasileiro (vírgula decimal), com foco em dispositivos móveis e integração cartográfica.
 
@@ -6,7 +6,7 @@
 
 ## 🚀 Sobre o Projeto
 
-O **GeoPontos / SARPAS Tool** foi desenvolvido para simplificar o trabalho de pilotos de drones, topógrafos, engenheiros e usuários de sistemas como o **SARPAS (DECEA)**, Google Earth e ferramentas GIS.
+O **GeoLOC** foi desenvolvido para simplificar o trabalho de pilotos de drones, topógrafos, engenheiros e usuários de sistemas como o **SARPAS (DECEA)**, Google Earth e ferramentas GIS.
 
 Frequentemente, coordenadas copiadas de mapas (como Google Maps ou GPS) vêm no formato internacional com ponto decimal e juntas em uma única linha:
 `-20.464431484462686, -45.951409846570364`
@@ -39,7 +39,7 @@ Esta ferramenta separa automaticamente os valores em campos individuais de **Lat
 ## 📂 Estrutura do Projeto
 
 ```text
-SARPAS_Tool/
+GeoLOC/
 │
 ├── index.html      # Estrutura da interface web
 ├── style.css       # Estilização visual, temas (Dark/Light) e responsividade
