@@ -57,20 +57,34 @@
             <section class="card map-card" id="map-section">
                 <div class="card-header">
                     <h2><span class="indicator-dot"></span> Mapa Interativo</h2>
-                    <button id="btn-locate" class="btn btn-icon-small" title="Minha Localização">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <line x1="12" y1="1" x2="12" y2="3"></line>
-                            <line x1="12" y1="21" x2="12" y2="23"></line>
-                            <line x1="1" y1="12" x2="3" y2="12"></line>
-                            <line x1="21" y1="12" x2="23" y2="12"></line>
-                        </svg>
-                        <span>Onde estou?</span>
-                    </button>
+                    <div class="map-controls">
+                        <button id="btn-airspace" class="btn btn-icon-small" title="Exibir zonas de restrição do DECEA">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            <span>Zonas DECEA</span>
+                        </button>
+                        <button id="btn-locate" class="btn btn-icon-small" title="Minha Localização">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <line x1="12" y1="1" x2="12" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="23"></line>
+                                <line x1="1" y1="12" x2="3" y2="12"></line>
+                                <line x1="21" y1="12" x2="23" y2="12"></line>
+                            </svg>
+                            <span>Onde estou?</span>
+                        </button>
+                    </div>
                 </div>
                 <div id="map"></div>
                 <div class="map-hint">Toque no mapa para capturar a coordenada</div>
+                <div id="airspace-legend" class="airspace-legend" style="display: none;">
+                    <div class="legend-item"><span class="legend-badge badge-prohibited"></span> Proibida</div>
+                    <div class="legend-item"><span class="legend-badge badge-restricted"></span> Restrita</div>
+                    <div class="legend-item"><span class="legend-badge badge-dangerous"></span> Perigosa</div>
+                    <div class="legend-item"><span class="legend-badge badge-ctr"></span> CTR Aeródromo</div>
+                </div>
             </section>
 
             <!-- Seção de Entrada Manual -->

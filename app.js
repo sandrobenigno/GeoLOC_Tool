@@ -6,6 +6,8 @@ const btnCopyLat = document.getElementById('btn-copy-lat');
 const btnCopyLng = document.getElementById('btn-copy-lng');
 const btnCopyBoth = document.getElementById('btn-copy-both');
 const btnLocate = document.getElementById('btn-locate');
+const btnAirspace = document.getElementById('btn-airspace');
+const airspaceLegend = document.getElementById('airspace-legend');
 const btnClear = document.getElementById('btn-clear');
 const btnThemeToggle = document.getElementById('btn-theme-toggle');
 const toastContainer = document.getElementById('toast-container');
@@ -14,11 +16,14 @@ const toastContainer = document.getElementById('toast-container');
 let map;
 let marker;
 let currentTileLayer;
+let deceaAirspaceLayer;
+let isAirspaceActive = false;
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initMap();
+    initAirspaceLayer();
     setupEventListeners();
 });
 
@@ -58,6 +63,41 @@ function initMap() {
     tryGeolocation(true);
 }
 
+// Initialize DECEA Airspace WMS Layer
+function initAirspaceLayer() {
+    deceaAirspaceLayer = L.tileLayer.wms('https://geoaisweb.decea.mil.br/geoserver/wms', {
+        layers: 'ICA:eac_r,ICA:eac_p,ICA:eac_d,ICA:CTR',
+        format: 'image/png',
+        transparent: true,
+        opacity: 0.65,
+        version: '1.1.1',
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://geoaisweb.decea.mil.br/" target="_blank">DECEA/GeoAISWEB</a>'
+    });
+}
+
+// Toggle Airspace restriction layer visibility
+function toggleAirspace() {
+    isAirspaceActive = !isAirspaceActive;
+
+    if (isAirspaceActive) {
+        if (!deceaAirspaceLayer) {
+            initAirspaceLayer();
+        }
+        map.addLayer(deceaAirspaceLayer);
+        btnAirspace.classList.add('active');
+        if (airspaceLegend) airspaceLegend.style.display = 'flex';
+        showToast('Zonas de Restrição DECEA ativadas');
+    } else {
+        if (deceaAirspaceLayer && map.hasLayer(deceaAirspaceLayer)) {
+            map.removeLayer(deceaAirspaceLayer);
+        }
+        btnAirspace.classList.remove('active');
+        if (airspaceLegend) airspaceLegend.style.display = 'none';
+        showToast('Zonas de Restrição DECEA desativadas');
+    }
+}
+
 // Setup Event Listeners
 function setupEventListeners() {
     // Capture input in real-time
@@ -75,6 +115,11 @@ function setupEventListeners() {
     btnLocate.addEventListener('click', () => {
         tryGeolocation(false);
     });
+
+    // Airspace restriction layer toggle action
+    if (btnAirspace) {
+        btnAirspace.addEventListener('click', toggleAirspace);
+    }
 
     // Theme toggle button action
     btnThemeToggle.addEventListener('click', toggleTheme);

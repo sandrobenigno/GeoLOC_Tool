@@ -401,6 +401,13 @@ input[type="text"]:focus {
     color: var(--success-color) !important;
 }
 
+.map-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .btn-icon-small {
     background-color: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--card-border);
@@ -408,12 +415,68 @@ input[type="text"]:focus {
     padding: 6px 12px;
     font-size: 0.8rem;
     border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
 }
 
 .btn-icon-small:hover {
     background-color: rgba(6, 182, 212, 0.1);
     border-color: var(--accent-color);
     color: var(--accent-color);
+}
+
+.btn-icon-small.active {
+    background-color: rgba(6, 182, 212, 0.2) !important;
+    border-color: var(--accent-color) !important;
+    color: var(--accent-color) !important;
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+body.light-theme .btn-icon-small.active {
+    background-color: rgba(8, 145, 178, 0.15) !important;
+    color: #0891b2 !important;
+}
+
+.airspace-legend {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    padding-top: 4px;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-badge {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.badge-prohibited {
+    background-color: #ef4444;
+}
+
+.badge-restricted {
+    background-color: #f59e0b;
+}
+
+.badge-dangerous {
+    background-color: #8b5cf6;
+}
+
+.badge-ctr {
+    background-color: #3b82f6;
 }
 
 .btn-primary {

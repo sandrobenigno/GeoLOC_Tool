@@ -23,6 +23,7 @@ Esta ferramenta separa automaticamente os valores em campos individuais de **Lat
 
 - 📱 **Interface Mobile-First**: Layout vertical e responsivo, botões grandes e fáceis de tocar no celular.
 - 🗺️ **Mapa Interativo (OpenStreetMap)**: Toque ou clique em qualquer local do mapa para obter e converter as coordenadas instantaneamente, sem necessidade de chaves de API pagas.
+- 🛡️ **Zonas de Restrição DECEA (GeoAISWEB)**: Camada oficial WMS com visualização de áreas Proibidas, Restritas, Perigosas e CTRs de aeródromos para voos seguros de drones.
 - 🎯 **Geolocalização ("Onde estou?")**: Localize sua posição GPS atual com um toque e preencha os campos automaticamente.
 - 🌗 **Modo Claro / Modo Escuro**: Alternância dinâmica de temas (Sol/Lua) com ajuste de contraste do mapa em tempo real via filtros CSS.
 - 📋 **Atalhos Rápidos de Cópia**: Botões dedicados para copiar Latitude, Longitude ou ambos com feedback visual instantâneo ("Copiado!").
