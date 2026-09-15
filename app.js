@@ -17,9 +17,8 @@ const btnCopyBoth = document.getElementById('btn-copy-both');
 const btnLocate = document.getElementById('btn-locate');
 const btnAirspace = document.getElementById('btn-airspace');
 const btnAirspaceConfig = document.getElementById('btn-airspace-config');
-const btnMapMode = document.getElementById('btn-map-mode');
-const mapModeIcon = document.getElementById('map-mode-icon');
-const mapModeText = document.getElementById('map-mode-text');
+const btnModeOnline = document.getElementById('btn-mode-online');
+const btnModeOffline = document.getElementById('btn-mode-offline');
 const btnOfflineManager = document.getElementById('btn-offline-manager');
 const modalOfflineMaps = document.getElementById('modal-offline-maps');
 const btnCloseOfflineModal = document.getElementById('btn-close-offline-modal');
@@ -31,6 +30,7 @@ const btnPickFile = document.getElementById('btn-pick-file');
 const fileInputGeojson = document.getElementById('file-input-geojson');
 const savedMapsList = document.getElementById('saved-maps-list');
 const offlineIndicator = document.getElementById('offline-indicator');
+const activeMapNameSpan = document.getElementById('active-map-name');
 const modalAirspace = document.getElementById('modal-airspace');
 const btnCloseModal = document.getElementById('btn-close-modal');
 const btnApplyModal = document.getElementById('btn-apply-modal');
@@ -52,6 +52,7 @@ let vectorLayer = null;
 let currentVectorGeoJSON = null;
 let currentMapMode = localStorage.getItem('geoloc_map_mode') || 'online'; // 'online' | 'offline'
 let activeMapId = localStorage.getItem('geoloc_active_map_id') || 'brazil_base';
+let activeMapTitle = 'Brasil Geral (Estados)';
 
 // IBGE State codes mapping
 const IBGE_UF_CODES = {
@@ -62,7 +63,7 @@ const IBGE_UF_CODES = {
 
 // IndexedDB Helper for Offline Maps
 const DB_NAME = 'geoloc_maps_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'maps';
 
 function openMapDB() {
@@ -80,57 +81,84 @@ function openMapDB() {
 }
 
 async function saveMapToDB(id, name, type, geojson) {
-    const db = await openMapDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        store.put({ id, name, type, geojson, date: new Date().toISOString() });
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
+    try {
+        const db = await openMapDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            store.put({ id, name, type, geojson, date: new Date().toISOString() });
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    } catch (e) {
+        console.warn('IndexedDB save error:', e);
+    }
 }
 
 async function getMapFromDB(id) {
-    const db = await openMapDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.get(id);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-    });
+    try {
+        const db = await openMapDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.get(id);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    } catch (e) {
+        console.warn('IndexedDB get error:', e);
+        return null;
+    }
 }
 
 async function getAllMapsFromDB() {
-    const db = await openMapDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.getAll();
-        req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => reject(req.error);
-    });
+    try {
+        const db = await openMapDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    } catch (e) {
+        console.warn('IndexedDB getAll error:', e);
+        return [];
+    }
 }
 
 async function deleteMapFromDB(id) {
-    const db = await openMapDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        store.delete(id);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
+    try {
+        const db = await openMapDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            store.delete(id);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    } catch (e) {
+        console.warn('IndexedDB delete error:', e);
+    }
 }
 
 // Initialization
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Setup event listeners immediately so all buttons are responsive
+    setupEventListeners();
+
+    // 2. Initialize UI theme & preferences
     initTheme();
     loadLayerPreferences();
+
+    // 3. Initialize Map & Airspace layer
     initMap();
     initAirspaceLayer();
-    await initOfflineMaps();
-    setupEventListeners();
+
+    // 4. Initialize Offline Maps subsystem asynchronously
+    initOfflineMaps().catch(err => {
+        console.warn('Offline maps initialization note:', err);
+    });
 });
 
 // Theme Management
@@ -194,6 +222,12 @@ function renderVectorLayer(geojsonData) {
     }
     if (!geojsonData) return;
 
+    // Validate GeoJSON
+    if (!geojsonData.type || (!geojsonData.features && geojsonData.type !== 'Feature' && geojsonData.type !== 'FeatureCollection')) {
+        console.warn('Invalid GeoJSON passed to renderVectorLayer:', geojsonData);
+        return;
+    }
+
     currentVectorGeoJSON = geojsonData;
     vectorLayer = L.geoJSON(geojsonData, {
         style: getVectorStyle,
@@ -217,23 +251,31 @@ async function loadActiveVectorMap(targetMapId = null) {
     const mapIdToLoad = targetMapId || activeMapId;
     let mapData = await getMapFromDB(mapIdToLoad);
 
-    if (!mapData) {
-        // Fallback: try to fetch built-in brazil_base.json
+    // Check if mapData exists and is valid GeoJSON (has features)
+    const isInvalid = !mapData || !mapData.geojson || !mapData.geojson.features;
+
+    if (isInvalid) {
         try {
             const resp = await fetch('./data/brazil_base.json');
             if (resp.ok) {
                 const baseGeo = await resp.json();
                 await saveMapToDB('brazil_base', '🇧🇷 Brasil Geral (Estados)', 'ibge_base', baseGeo);
-                mapData = { id: 'brazil_base', geojson: baseGeo };
+                mapData = { id: 'brazil_base', name: '🇧🇷 Brasil Geral (Estados)', geojson: baseGeo };
             }
         } catch (e) {
-            console.warn('Could not load default brazil_base.json:', e);
+            console.warn('Could not load default data/brazil_base.json:', e);
         }
     }
 
     if (mapData && mapData.geojson) {
         activeMapId = mapData.id;
+        activeMapTitle = mapData.name || 'Brasil Geral';
         localStorage.setItem('geoloc_active_map_id', activeMapId);
+        
+        if (activeMapNameSpan) {
+            activeMapNameSpan.textContent = activeMapTitle;
+        }
+
         renderVectorLayer(mapData.geojson);
         renderSavedMapsList();
     }
@@ -259,10 +301,12 @@ function setMapMode(mode, showNotification = true) {
         } else if (!vectorLayer) {
             loadActiveVectorMap();
         }
-        if (btnMapMode) btnMapMode.classList.add('active');
-        if (mapModeIcon) mapModeIcon.textContent = '📐';
-        if (mapModeText) mapModeText.textContent = 'Vetorial';
-        if (offlineIndicator) offlineIndicator.style.display = 'flex';
+        if (btnModeOffline) btnModeOffline.classList.add('active');
+        if (btnModeOnline) btnModeOnline.classList.remove('active');
+        if (offlineIndicator) {
+            offlineIndicator.style.display = 'flex';
+            if (activeMapNameSpan) activeMapNameSpan.textContent = activeMapTitle;
+        }
         if (showNotification) showToast('Modo Vetorial Offline ativado');
     } else {
         if (vectorLayer && map.hasLayer(vectorLayer)) {
@@ -271,30 +315,32 @@ function setMapMode(mode, showNotification = true) {
         if (currentTileLayer && !map.hasLayer(currentTileLayer)) {
             currentTileLayer.addTo(map);
         }
-        if (btnMapMode) btnMapMode.classList.remove('active');
-        if (mapModeIcon) mapModeIcon.textContent = '🌐';
-        if (mapModeText) mapModeText.textContent = 'Online';
+        if (btnModeOnline) btnModeOnline.classList.add('active');
+        if (btnModeOffline) btnModeOffline.classList.remove('active');
         if (offlineIndicator) offlineIndicator.style.display = 'none';
         if (showNotification) showToast('Modo Online (OpenStreetMap) ativado');
     }
 }
 
-function toggleMapMode() {
-    setMapMode(currentMapMode === 'online' ? 'offline' : 'online');
-}
-
 // Download Brazil Base Mesh from IBGE API
 async function downloadBrazilBase() {
+    if (!btnDlBrazil) return;
     btnDlBrazil.disabled = true;
     btnDlBrazil.textContent = 'Baixando... ⏳';
     try {
-        const url = 'https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/json&qualidade=minima&intrarregiao=UF';
+        const url = 'https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=minima&intrarregiao=UF';
         const resp = await fetch(url);
         if (!resp.ok) throw new Error('Falha ao baixar dados do IBGE');
         const geojson = await resp.json();
+        
+        if (!geojson || !geojson.features) {
+            throw new Error('Formato GeoJSON inválido recebido do IBGE.');
+        }
+
         await saveMapToDB('brazil_base', '🇧🇷 Brasil Geral (Estados)', 'ibge_base', geojson);
         await loadActiveVectorMap('brazil_base');
-        showToast('Mapa do Brasil salvo para uso offline!');
+        setMapMode('offline');
+        showToast('Mapa do Brasil salvo e ativado!');
     } catch (e) {
         console.error(e);
         showToast('Erro ao baixar mapa do Brasil.', 'error');
@@ -306,6 +352,7 @@ async function downloadBrazilBase() {
 
 // Download State Municipalities from IBGE API
 async function downloadStateMesh() {
+    if (!selectUF || !btnDlUF) return;
     const uf = selectUF.value;
     if (!uf) return;
 
@@ -316,14 +363,26 @@ async function downloadStateMesh() {
     btnDlUF.textContent = 'Baixando... ⏳';
 
     try {
-        const url = `https://servicodados.ibge.gov.br/api/v3/malhas/estados/${ufCode}?formato=application/json&qualidade=minima&intrarregiao=municipio`;
+        const url = `https://servicodados.ibge.gov.br/api/v3/malhas/estados/${ufCode}?formato=application/vnd.geo+json&qualidade=minima&intrarregiao=municipio`;
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`Falha ao baixar municípios de ${uf}`);
         const geojson = await resp.json();
+
+        if (!geojson || !geojson.features) {
+            throw new Error('Formato GeoJSON inválido recebido do IBGE.');
+        }
+
         const mapId = `uf_${uf.toLowerCase()}`;
         const mapName = `📍 Municípios - ${uf}`;
         await saveMapToDB(mapId, mapName, 'ibge_uf', geojson);
         await loadActiveVectorMap(mapId);
+        setMapMode('offline');
+
+        // Fit map bounds to downloaded state
+        if (vectorLayer && vectorLayer.getBounds().isValid()) {
+            map.fitBounds(vectorLayer.getBounds(), { padding: [20, 20] });
+        }
+
         showToast(`Municípios de ${uf} baixados e ativados!`);
     } catch (e) {
         console.error(e);
@@ -350,6 +409,10 @@ function handleCustomFileUpload(event) {
             const mapName = `📁 ${file.name}`;
             await saveMapToDB(mapId, mapName, 'custom', geojson);
             await loadActiveVectorMap(mapId);
+            setMapMode('offline');
+            if (vectorLayer && vectorLayer.getBounds().isValid()) {
+                map.fitBounds(vectorLayer.getBounds(), { padding: [20, 20] });
+            }
             showToast(`Mapa "${file.name}" carregado com sucesso!`);
         } catch (err) {
             console.error(err);
@@ -393,6 +456,10 @@ async function renderSavedMapsList() {
         if (useBtn) {
             useBtn.addEventListener('click', async () => {
                 await loadActiveVectorMap(m.id);
+                setMapMode('offline');
+                if (vectorLayer && vectorLayer.getBounds().isValid()) {
+                    map.fitBounds(vectorLayer.getBounds(), { padding: [20, 20] });
+                }
                 showToast(`Mapa "${m.name}" ativado`);
             });
         }
@@ -430,7 +497,7 @@ function initAirspaceLayer() {
         layers: layersParam,
         format: 'image/png',
         transparent: true,
-        opacity: 0.70,
+        opacity: 0.75,
         version: '1.1.1',
         maxZoom: 19,
         attribution: '&copy; <a href="https://geoaisweb.decea.mil.br/" target="_blank">DECEA/GeoAISWEB</a>'
@@ -469,14 +536,14 @@ function toggleAirspace() {
             deceaAirspaceLayer.setParams({ layers: activeLayers });
         }
         map.addLayer(deceaAirspaceLayer);
-        btnAirspace.classList.add('active');
+        if (btnAirspace) btnAirspace.classList.add('active');
         if (airspaceLegend) airspaceLegend.style.display = 'flex';
         showToast('Zonas de Restrição DECEA ativadas');
     } else {
         if (deceaAirspaceLayer && map.hasLayer(deceaAirspaceLayer)) {
             map.removeLayer(deceaAirspaceLayer);
         }
-        btnAirspace.classList.remove('active');
+        if (btnAirspace) btnAirspace.classList.remove('active');
         if (airspaceLegend) airspaceLegend.style.display = 'none';
         showToast('Zonas de Restrição DECEA desativadas');
     }
@@ -528,12 +595,12 @@ function closeOfflineModal() {
 
 // Setup Event Listeners
 function setupEventListeners() {
-    rawInput.addEventListener('input', handleInputChange);
-    rawInput.addEventListener('paste', () => setTimeout(handleInputChange, 10));
+    if (rawInput) {
+        rawInput.addEventListener('input', handleInputChange);
+        rawInput.addEventListener('paste', () => setTimeout(handleInputChange, 10));
+    }
 
-    map.on('click', handleMapClick);
-
-    btnLocate.addEventListener('click', () => tryGeolocation(false));
+    if (btnLocate) btnLocate.addEventListener('click', () => tryGeolocation(false));
 
     if (btnAirspace) btnAirspace.addEventListener('click', toggleAirspace);
     if (btnAirspaceConfig) btnAirspaceConfig.addEventListener('click', openModal);
@@ -557,7 +624,8 @@ function setupEventListeners() {
     }
 
     // Offline Map controls
-    if (btnMapMode) btnMapMode.addEventListener('click', toggleMapMode);
+    if (btnModeOnline) btnModeOnline.addEventListener('click', () => setMapMode('online'));
+    if (btnModeOffline) btnModeOffline.addEventListener('click', () => setMapMode('offline'));
     if (btnOfflineManager) btnOfflineManager.addEventListener('click', openOfflineModal);
     if (btnCloseOfflineModal) btnCloseOfflineModal.addEventListener('click', closeOfflineModal);
     if (btnCloseOfflineModalBtn) btnCloseOfflineModalBtn.addEventListener('click', closeOfflineModal);
@@ -570,7 +638,7 @@ function setupEventListeners() {
     if (btnDlBrazil) btnDlBrazil.addEventListener('click', downloadBrazilBase);
     if (selectUF) {
         selectUF.addEventListener('change', () => {
-            btnDlUF.disabled = !selectUF.value;
+            if (btnDlUF) btnDlUF.disabled = !selectUF.value;
         });
     }
     if (btnDlUF) btnDlUF.addEventListener('click', downloadStateMesh);
@@ -588,15 +656,17 @@ function setupEventListeners() {
         showToast('Conexão de internet restabelecida.');
     });
 
-    btnThemeToggle.addEventListener('click', toggleTheme);
-    btnClear.addEventListener('click', clearAll);
+    if (btnThemeToggle) btnThemeToggle.addEventListener('click', toggleTheme);
+    if (btnClear) btnClear.addEventListener('click', clearAll);
 
-    btnCopyLat.addEventListener('click', () => copyToClipboard(latOutput.value, btnCopyLat, 'Latitude copiada!'));
-    btnCopyLng.addEventListener('click', () => copyToClipboard(lngOutput.value, btnCopyLng, 'Longitude copiada!'));
-    btnCopyBoth.addEventListener('click', () => {
-        const textToCopy = `${latOutput.value}\n${lngOutput.value}`;
-        copyToClipboard(textToCopy, btnCopyBoth, 'Ambas coordenadas copiadas!');
-    });
+    if (btnCopyLat) btnCopyLat.addEventListener('click', () => copyToClipboard(latOutput.value, btnCopyLat, 'Latitude copiada!'));
+    if (btnCopyLng) btnCopyLng.addEventListener('click', () => copyToClipboard(lngOutput.value, btnCopyLng, 'Longitude copiada!'));
+    if (btnCopyBoth) {
+        btnCopyBoth.addEventListener('click', () => {
+            const textToCopy = `${latOutput.value}\n${lngOutput.value}`;
+            copyToClipboard(textToCopy, btnCopyBoth, 'Ambas coordenadas copiadas!');
+        });
+    }
 }
 
 // Handle Manual Inputs
@@ -604,11 +674,11 @@ function handleInputChange() {
     const value = rawInput.value.trim();
     if (value === '') {
         clearOutputs();
-        btnClear.style.display = 'none';
+        if (btnClear) btnClear.style.display = 'none';
         return;
     }
 
-    btnClear.style.display = 'inline-block';
+    if (btnClear) btnClear.style.display = 'inline-block';
     const coords = parseCoordinates(value);
 
     if (coords) {
@@ -624,8 +694,8 @@ function handleMapClick(e) {
     const lat = e.latlng.lat;
     const lng = e.latlng.lng;
     
-    rawInput.value = `${lat.toFixed(14)}, ${lng.toFixed(14)}`;
-    btnClear.style.display = 'inline-block';
+    if (rawInput) rawInput.value = `${lat.toFixed(14)}, ${lng.toFixed(14)}`;
+    if (btnClear) btnClear.style.display = 'inline-block';
     
     updateOutputs(lat.toString(), lng.toString());
     updateMapMarker(lat, lng, false);
@@ -649,12 +719,12 @@ function tryGeolocation(isSilentOnFail = false) {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             
-            rawInput.value = `${lat.toFixed(14)}, ${lng.toFixed(14)}`;
-            btnClear.style.display = 'inline-block';
+            if (rawInput) rawInput.value = `${lat.toFixed(14)}, ${lng.toFixed(14)}`;
+            if (btnClear) btnClear.style.display = 'inline-block';
             
             updateOutputs(lat.toString(), lng.toString());
             updateMapMarker(lat, lng, true, 16);
-            showToast('Localização encontrada com sucesso!');
+            if (!isSilentOnFail) showToast('Localização encontrada com sucesso!');
         },
         (error) => {
             console.warn(`Geolocation error (${error.code}): ${error.message}`);
@@ -701,30 +771,30 @@ function updateOutputs(latStr, lngStr) {
     const formattedLat = latStr.replace('.', ',');
     const formattedLng = lngStr.replace('.', ',');
 
-    latOutput.value = formattedLat;
-    lngOutput.value = formattedLng;
+    if (latOutput) latOutput.value = formattedLat;
+    if (lngOutput) lngOutput.value = formattedLng;
 
-    btnCopyLat.disabled = false;
-    btnCopyLng.disabled = false;
-    btnCopyBoth.disabled = false;
+    if (btnCopyLat) btnCopyLat.disabled = false;
+    if (btnCopyLng) btnCopyLng.disabled = false;
+    if (btnCopyBoth) btnCopyBoth.disabled = false;
 }
 
 // Clear Outputs
 function clearOutputs() {
-    latOutput.value = '';
-    lngOutput.value = '';
-    btnCopyLat.disabled = true;
-    btnCopyLng.disabled = true;
-    btnCopyBoth.disabled = true;
+    if (latOutput) latOutput.value = '';
+    if (lngOutput) lngOutput.value = '';
+    if (btnCopyLat) btnCopyLat.disabled = true;
+    if (btnCopyLng) btnCopyLng.disabled = true;
+    if (btnCopyBoth) btnCopyBoth.disabled = true;
 }
 
 // Clear All
 function clearAll() {
-    rawInput.value = '';
+    if (rawInput) rawInput.value = '';
     clearOutputs();
-    btnClear.style.display = 'none';
+    if (btnClear) btnClear.style.display = 'none';
     
-    if (marker) {
+    if (marker && map) {
         map.removeLayer(marker);
         marker = null;
     }
@@ -735,7 +805,7 @@ function updateMapMarker(lat, lng, shouldPan = true, zoomLevel = null) {
     const latNum = parseFloat(lat);
     const lngNum = parseFloat(lng);
 
-    if (isNaN(latNum) || isNaN(lngNum)) return;
+    if (isNaN(latNum) || isNaN(lngNum) || !map) return;
 
     if (marker) {
         marker.setLatLng([latNum, lngNum]);
@@ -748,7 +818,7 @@ function updateMapMarker(lat, lng, shouldPan = true, zoomLevel = null) {
                 background-color: var(--accent-color); 
                 border: 2px solid white; 
                 border-radius: 50%;
-                box-shadow: 0 0 10px var(--accent-color);
+                box-shadow: 0 0 10px var(--accent-glow);
             "></div>`,
             iconSize: [14, 14],
             iconAnchor: [7, 7]
@@ -799,6 +869,7 @@ function copyToClipboard(text, triggerButton, successMessage) {
 
 // Toast Notifications Helper
 function showToast(message, type = 'success') {
+    if (!toastContainer) return;
     const toast = document.createElement('div');
     toast.className = `toast ${type === 'error' ? 'toast-error' : ''}`;
     

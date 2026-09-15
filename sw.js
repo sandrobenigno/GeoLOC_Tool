@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geoloc-cache-v1';
+const CACHE_NAME = 'geoloc-cache-v2';
 const STATIC_ASSETS = [
   './',
   './index.html',

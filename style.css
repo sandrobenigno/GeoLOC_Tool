@@ -401,19 +401,14 @@ input[type="text"]:focus {
     color: var(--success-color) !important;
 }
 
-.map-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.btn-icon-small {
-    background-color: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--card-border);
-    color: var(--text-primary);
-    padding: 6px 12px;
-    font-size: 0.8rem;
+/* Locate Highlight Button in Header */
+.btn-locate-highlight {
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
     border-radius: 20px;
     display: inline-flex;
     align-items: center;
@@ -422,22 +417,158 @@ input[type="text"]:focus {
     transition: var(--transition-smooth);
 }
 
-.btn-icon-small:hover {
-    background-color: rgba(6, 182, 212, 0.1);
+.btn-locate-highlight:hover {
+    background: var(--accent-color);
+    color: #0b0c10;
+    box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.btn-locate-highlight:active {
+    transform: scale(0.96);
+}
+
+body.light-theme .btn-locate-highlight {
+    background: rgba(8, 145, 178, 0.08);
+    border-color: #0891b2;
+    color: #0891b2;
+}
+
+body.light-theme .btn-locate-highlight:hover {
+    background: #0891b2;
+    color: #ffffff;
+}
+
+/* Map Toolbar (Segmented & Controls) */
+.map-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-bottom: 2px;
+}
+
+.toolbar-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Segmented Control for Online / Offline */
+.segmented-control {
+    display: inline-flex;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.segment-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-family: inherit;
+    font-weight: 500;
+    padding: 5px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.segment-btn:hover:not(.active) {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.segment-btn.active {
+    background: rgba(6, 182, 212, 0.2);
+    color: var(--accent-color);
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+body.light-theme .segmented-control {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .segment-btn.active {
+    background: #ffffff;
+    color: #0891b2;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Toolbar Buttons */
+.btn-toolbar {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    font-family: inherit;
+    font-weight: 500;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.btn-toolbar:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.btn-toolbar.active {
+    background: rgba(6, 182, 212, 0.2) !important;
+    border-color: var(--accent-color) !important;
+    color: var(--accent-color) !important;
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+body.light-theme .btn-toolbar {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .btn-toolbar.active {
+    background: rgba(8, 145, 178, 0.12) !important;
+    color: #0891b2 !important;
+    border-color: #0891b2 !important;
+}
+
+.btn-toolbar-icon {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    width: 29px;
+    height: 29px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    padding: 0;
+}
+
+.btn-toolbar-icon:hover {
+    background: rgba(6, 182, 212, 0.15);
     border-color: var(--accent-color);
     color: var(--accent-color);
 }
 
-.btn-icon-small.active {
-    background-color: rgba(6, 182, 212, 0.2) !important;
-    border-color: var(--accent-color) !important;
-    color: var(--accent-color) !important;
-    box-shadow: 0 0 10px var(--accent-glow);
-}
-
-body.light-theme .btn-icon-small.active {
-    background-color: rgba(8, 145, 178, 0.15) !important;
-    color: #0891b2 !important;
+body.light-theme .btn-toolbar-icon {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.08);
 }
 
 .airspace-legend {
