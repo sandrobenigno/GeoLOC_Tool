@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geoloc-cache-v3';
+const CACHE_NAME = 'geoloc-cache-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const STATIC_ASSETS = [
   './icons/icon-512.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://unpkg.com/flatgeobuf@3.34.0/dist/flatgeobuf-geojson.min.js',
   'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap'
 ];
 

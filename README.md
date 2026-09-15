@@ -23,13 +23,18 @@ Esta ferramenta separa automaticamente os valores em campos individuais de **Lat
 
 - 📲 **Aplicativo Instalável (PWA)**: Pode ser instalado na tela inicial do celular Android, iOS ou desktop como um app nativo, funcionando 100% offline via Service Worker.
 - 🗺️ **Mapa Interativo (OpenStreetMap)**: Toque ou clique em qualquer local do mapa para obter e converter as coordenadas instantaneamente, sem necessidade de chaves de API pagas.
-- 📦 **Mapas Vetoriais Offline (IBGE + GeoJSON)**:
+- 🛰️ **Gerador de Mapas Vetoriais FlatGeobuf (.fgb)**:
+  - Recorte dinâmico do OpenStreetMap a partir da visão da tela ou retângulo desenhado pelo usuário.
+  - Baixa e renderiza offline **rodovias, estradas rurais, ruas e rios/hidrografia**.
+  - Formato binário ultra-rápido com índice espacial FlatGeobuf e exportação de arquivo `.fgb`.
+- 🏛️ **Malhas Territoriais Oficiais (IBGE)**:
   - Base vetorial leve do Brasil pré-instalada (~30 KB).
-  - Download sob demanda de malhas estaduais e divisões municipais da API do IBGE.
-  - Suporte para carregar seus próprios arquivos `.geojson` customizados (talhões, áreas de voo, limites).
-  - Armazenamento local ilimitado e persistente com **IndexedDB**.
+  - Download sob demanda de estados completos ou **municípios individuais em qualidade máxima**.
+- 📂 **Importação & Armazenamento Local (IndexedDB)**:
+  - Suporte para carregar seus próprios arquivos `.fgb`, `.geojson` ou `.json`.
+  - Armazenamento persistente e sem limites no banco de dados local do navegador.
 - 🛡️ **Zonas de Restrição DECEA (GeoAISWEB)**: Camada oficial WMS com visualização de Áreas Proibidas (P), Restritas (R), Perigosas (D), Zonas de Aeródromo (ATZ), CTR/TMA, traçado de pistas de pouso, cones de cabeceiras e helipontos.
-- ⚙️ **Painel de Configurações**: Menus dedicados para gerenciar camadas do espaço aéreo e gerenciamento de mapas offline.
+- ⚙️ **Painel de Configurações em Abas**: Menu organizado para gerenciar espaço aéreo e mapas offline.
 - 🎯 **Geolocalização ("Onde estou?")**: Localize sua posição GPS atual com um toque e preencha os campos automaticamente.
 - 🌗 **Modo Claro / Modo Escuro**: Alternância dinâmica de temas (Sol/Lua) com ajuste de contraste do mapa em tempo real via filtros CSS.
 - 📋 **Atalhos Rápidos de Cópia**: Botões dedicados para copiar Latitude, Longitude ou ambos com feedback visual instantâneo ("Copiado!").
@@ -42,7 +47,8 @@ Esta ferramenta separa automaticamente os valores em campos individuais de **Lat
 
 - **HTML5** semântico & **PWA Manifest**
 - **Service Worker** & **Cache API** (Offline-First)
-- **IndexedDB API** (Armazenamento de geometrias GeoJSON)
+- **FlatGeobuf (FGB)** & **Overpass API (OpenStreetMap)**
+- **IndexedDB API** (Armazenamento de binários FlatGeobuf e GeoJSON)
 - **CSS3** moderno (CSS Variables, Flexbox, Glassmorphism, Micro-animações)
 - **JavaScript (ES6+)** vanilla (sem frameworks pesados ou dependências externas)
 - **Leaflet.js** (v1.9.4) & **OpenStreetMap**

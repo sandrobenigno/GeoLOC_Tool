@@ -117,6 +117,10 @@
                 <div id="offline-indicator" class="offline-indicator" style="display: none;">
                     <span>📐 Modo Vetorial: <strong id="active-map-name">Brasil Geral</strong></span>
                 </div>
+                <div id="bbox-draw-banner" class="bbox-draw-banner" style="display: none;">
+                    <span>✏️ Toque em dois pontos do mapa para definir o retângulo</span>
+                    <button id="btn-cancel-draw" class="btn-cancel-draw">Cancelar</button>
+                </div>
                 <div id="map"></div>
                 <div class="map-hint">Toque no mapa para capturar a coordenada</div>
                 <div id="airspace-legend" class="airspace-legend" style="display: none;">
@@ -185,6 +189,7 @@
                         <span>Copiar Ambas</span>
                     </button>
                 </div>
+            </section>
         </main>
 
         <footer class="app-footer">
@@ -270,27 +275,97 @@
         </div>
     </div>
 
-    <!-- Modal de Gerenciamento de Mapas Offline -->
+    <!-- Modal de Gerenciamento de Mapas Offline (Estrutura em Abas) -->
     <div id="modal-offline-maps" class="modal-backdrop" style="display: none;">
-        <div class="modal-card">
+        <div class="modal-card modal-card-large">
             <div class="modal-header">
-                <h3><span class="indicator-dot"></span> Mapas Vetoriais Offline</h3>
+                <h3><span class="indicator-dot"></span> Gerenciador de Mapas Offline</h3>
                 <button id="btn-close-offline-modal" class="btn-close-modal" aria-label="Fechar">&times;</button>
             </div>
+
+            <!-- Navegação por Abas -->
+            <div class="modal-tabs">
+                <button class="modal-tab-btn active" data-tab="tab-osm">🛰️ Recorte OSM (.fgb)</button>
+                <button class="modal-tab-btn" data-tab="tab-ibge">🏛️ Malhas IBGE</button>
+                <button class="modal-tab-btn" data-tab="tab-saved">💾 Mapas Salvos</button>
+            </div>
+
             <div class="modal-body">
-                <p class="modal-desc">Baixe malhas municipais do IBGE ou aponte para um arquivo GeoJSON/KML salvo no seu aparelho para navegar sem internet:</p>
-                
-                <!-- Opção 1: Download de Malhas IBGE -->
-                <div class="offline-section-box">
-                    <h4>📥 1. Baixar Malhas Oficiais (IBGE)</h4>
-                    <div class="offline-download-controls">
-                        <button id="btn-dl-brazil" class="btn btn-secondary-action">
-                            🇧🇷 Baixar Mapa do Brasil (30 KB)
+                <!-- ABA 1: Recorte OSM (FlatGeobuf) -->
+                <div id="tab-osm" class="tab-content active">
+                    <p class="modal-desc">Gere um mapa vetorial offline com <strong>ruas, estradas rurais e rios</strong> a partir de uma área selecionada na tela:</p>
+                    
+                    <div class="offline-section-box">
+                        <h4>1. Definir Área de Recorte</h4>
+                        <div class="bbox-action-buttons">
+                            <button id="btn-bbox-viewport" class="btn btn-secondary-action">
+                                📐 Usar Visão Atual da Tela
+                            </button>
+                            <button id="btn-bbox-draw" class="btn btn-secondary-action">
+                                ✏️ Desenhar Retângulo no Mapa
+                            </button>
+                        </div>
+                        <div id="bbox-status-box" class="bbox-status-box">
+                            <span id="bbox-status-text">Nenhuma área selecionada</span>
+                        </div>
+                    </div>
+
+                    <div class="offline-section-box">
+                        <h4>2. Camadas a Incluir</h4>
+                        <div class="layer-options compact-options">
+                            <label class="layer-toggle-item">
+                                <input type="checkbox" id="fgb-layer-roads" checked>
+                                <span class="custom-toggle"></span>
+                                <div class="layer-info">
+                                    <span class="layer-title">🛣️ Rodovias, Estradas & Ruas</span>
+                                    <span class="layer-sub">Rodovias, vicinais, vias rurais e urbanas</span>
+                                </div>
+                            </label>
+                            <label class="layer-toggle-item">
+                                <input type="checkbox" id="fgb-layer-water" checked>
+                                <span class="custom-toggle"></span>
+                                <div class="layer-info">
+                                    <span class="layer-title">💧 Hidrografia</span>
+                                    <span class="layer-sub">Rios, córregos, canais e represas</span>
+                                </div>
+                            </label>
+                            <label class="layer-toggle-item">
+                                <input type="checkbox" id="fgb-layer-rails">
+                                <span class="custom-toggle"></span>
+                                <div class="layer-info">
+                                    <span class="layer-title">🚆 Ferrovias & Trilhos</span>
+                                    <span class="layer-sub">Linhas férreas principais e secundárias</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="offline-section-box">
+                        <h4>3. Nome do Mapa & Geração</h4>
+                        <input type="text" id="input-fgb-name" class="input-text-modern" placeholder="Ex: Fazenda Boa Vista / Centro de Campinas" autocomplete="off">
+                        <button id="btn-generate-fgb" class="btn btn-primary btn-full" disabled>
+                            ⚡ Gerar Mapa Vetorial (.fgb)
                         </button>
-                        
+                    </div>
+                </div>
+
+                <!-- ABA 2: Malhas Oficiais IBGE -->
+                <div id="tab-ibge" class="tab-content">
+                    <p class="modal-desc">Baixe malhas territoriais com divisões oficiais do Brasil, estados e municípios:</p>
+                    
+                    <div class="offline-section-box">
+                        <h4>🇧🇷 1. Mapa Base do Brasil</h4>
+                        <button id="btn-dl-brazil" class="btn btn-secondary-action btn-full">
+                            Baixar Divisão de Estados do Brasil (30 KB)
+                        </button>
+                    </div>
+
+                    <div class="offline-section-box">
+                        <h4>🏛️ 2. Malha Estadual Completa</h4>
+                        <p class="modal-subtext">Baixa o estado com a divisão de todos os municípios:</p>
                         <div class="state-download-row">
                             <select id="select-uf" class="select-modern">
-                                <option value="">1. Selecione o Estado (UF)...</option>
+                                <option value="">Selecione o Estado (UF)...</option>
                                 <option value="AC">Acre (AC)</option>
                                 <option value="AL">Alagoas (AL)</option>
                                 <option value="AP">Amapá (AP)</option>
@@ -319,41 +394,48 @@
                                 <option value="SE">Sergipe (SE)</option>
                                 <option value="TO">Tocantins (TO)</option>
                             </select>
-                            <button id="btn-dl-uf" class="btn btn-secondary-action" disabled title="Baixar todos os municípios deste estado">
+                            <button id="btn-dl-uf" class="btn btn-secondary-action" disabled>
                                 📥 Baixar Estado
                             </button>
                         </div>
+                    </div>
 
-                        <!-- Download de Cidade Específica -->
+                    <div class="offline-section-box">
+                        <h4>🏙️ 3. Município Individual (Qualidade Máxima)</h4>
+                        <p class="modal-subtext">Baixa o contorno oficial da cidade em resolução cartográfica máxima:</p>
                         <div class="state-download-row">
                             <select id="select-city" class="select-modern" disabled>
-                                <option value="">2. Selecione a Cidade...</option>
+                                <option value="">Selecione o Estado acima primeiro...</option>
                             </select>
-                            <button id="btn-dl-city" class="btn btn-secondary-action" disabled title="Baixar contorno oficial desta cidade em qualidade máxima">
+                            <button id="btn-dl-city" class="btn btn-secondary-action" disabled>
                                 🏙️ Baixar Cidade
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Opção 2: Carregar Arquivo do Aparelho -->
-                <div class="offline-section-box">
-                    <h4>📂 2. Carregar Arquivo do Dispositivo</h4>
-                    <p class="modal-subtext">Aponte para um arquivo <code>.geojson</code> ou <code>.json</code> na memória do celular/PC:</p>
-                    <input type="file" id="file-input-geojson" accept=".geojson,.json" style="display: none;">
-                    <button id="btn-pick-file" class="btn btn-secondary-action btn-full">
-                        📁 Selecionar Arquivo Local
-                    </button>
-                </div>
+                <!-- ABA 3: Mapas Salvos & Importação -->
+                <div id="tab-saved" class="tab-content">
+                    <p class="modal-desc">Gerencie seus mapas salvos ou carregue arquivos vetoriais salvos no seu aparelho:</p>
+                    
+                    <div class="offline-section-box">
+                        <h4>📁 Carregar Arquivo do Dispositivo</h4>
+                        <p class="modal-subtext">Suporta arquivos <code>.fgb</code>, <code>.geojson</code> ou <code>.json</code>:</p>
+                        <input type="file" id="file-input-geojson" accept=".fgb,.geojson,.json" style="display: none;">
+                        <button id="btn-pick-file" class="btn btn-secondary-action btn-full">
+                            📂 Selecionar Arquivo do Aparelho
+                        </button>
+                    </div>
 
-                <!-- Opção 3: Mapas Salvos na Memória (IndexedDB) -->
-                <div class="offline-section-box">
-                    <h4>💾 3. Mapas Salvos na Memória do Aparelho</h4>
-                    <div id="saved-maps-list" class="saved-maps-list">
-                        <div class="empty-maps-msg">Carregando mapas salvos...</div>
+                    <div class="offline-section-box">
+                        <h4>💾 Mapas Salvos na Memória Local</h4>
+                        <div id="saved-maps-list" class="saved-maps-list">
+                            <div class="empty-maps-msg">Carregando mapas salvos...</div>
+                        </div>
                     </div>
                 </div>
             </div>
+
             <div class="modal-footer">
                 <button id="btn-close-offline-modal-btn" class="btn btn-primary btn-modal-apply">Concluído</button>
             </div>
@@ -367,6 +449,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
+    <!-- FlatGeobuf Library -->
+    <script src="https://unpkg.com/flatgeobuf@3.34.0/dist/flatgeobuf-geojson.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

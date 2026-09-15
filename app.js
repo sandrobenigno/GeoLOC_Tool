@@ -23,6 +23,23 @@ const btnOfflineManager = document.getElementById('btn-offline-manager');
 const modalOfflineMaps = document.getElementById('modal-offline-maps');
 const btnCloseOfflineModal = document.getElementById('btn-close-offline-modal');
 const btnCloseOfflineModalBtn = document.getElementById('btn-close-offline-modal-btn');
+const modalTabBtns = document.querySelectorAll('.modal-tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+
+// BBOX & FlatGeobuf Elements
+const btnBboxViewport = document.getElementById('btn-bbox-viewport');
+const btnBboxDraw = document.getElementById('btn-bbox-draw');
+const bboxStatusBox = document.getElementById('bbox-status-box');
+const bboxStatusText = document.getElementById('bbox-status-text');
+const bboxDrawBanner = document.getElementById('bbox-draw-banner');
+const btnCancelDraw = document.getElementById('btn-cancel-draw');
+const fgbLayerRoads = document.getElementById('fgb-layer-roads');
+const fgbLayerWater = document.getElementById('fgb-layer-water');
+const fgbLayerRails = document.getElementById('fgb-layer-rails');
+const inputFgbName = document.getElementById('input-fgb-name');
+const btnGenerateFgb = document.getElementById('btn-generate-fgb');
+
+// IBGE Elements
 const btnDlBrazil = document.getElementById('btn-dl-brazil');
 const selectUF = document.getElementById('select-uf');
 const btnDlUF = document.getElementById('btn-dl-uf');
@@ -33,6 +50,8 @@ const fileInputGeojson = document.getElementById('file-input-geojson');
 const savedMapsList = document.getElementById('saved-maps-list');
 const offlineIndicator = document.getElementById('offline-indicator');
 const activeMapNameSpan = document.getElementById('active-map-name');
+
+// DECEA Modal Elements
 const modalAirspace = document.getElementById('modal-airspace');
 const btnCloseModal = document.getElementById('btn-close-modal');
 const btnApplyModal = document.getElementById('btn-apply-modal');
@@ -56,6 +75,12 @@ let currentMapMode = localStorage.getItem('geoloc_map_mode') || 'online'; // 'on
 let activeMapId = localStorage.getItem('geoloc_active_map_id') || 'brazil_base';
 let activeMapTitle = 'Brasil Geral (Estados)';
 
+// BBOX drawing state
+let selectedBBOX = null; // { south, west, north, east }
+let bboxRectangleLayer = null;
+let isDrawingBBOX = false;
+let drawStartLatLng = null;
+
 // IBGE State codes mapping
 const IBGE_UF_CODES = {
     AC: 12, AL: 27, AP: 16, AM: 13, BA: 29, CE: 23, DF: 53, ES: 32, GO: 52,
@@ -65,7 +90,7 @@ const IBGE_UF_CODES = {
 
 // IndexedDB Helper for Offline Maps
 const DB_NAME = 'geoloc_maps_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'maps';
 
 function openMapDB() {
@@ -82,13 +107,13 @@ function openMapDB() {
     });
 }
 
-async function saveMapToDB(id, name, type, geojson) {
+async function saveMapToDB(id, name, type, geojson, extra = {}) {
     try {
         const db = await openMapDB();
         return new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_NAME, 'readwrite');
             const store = tx.objectStore(STORE_NAME);
-            store.put({ id, name, type, geojson, date: new Date().toISOString() });
+            store.put({ id, name, type, geojson, ...extra, date: new Date().toISOString() });
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
@@ -175,7 +200,7 @@ function toggleTheme() {
     const isLight = document.body.classList.toggle('light-theme');
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
     if (vectorLayer) {
-        vectorLayer.setStyle(getVectorStyle());
+        vectorLayer.setStyle(getVectorStyle);
     }
 }
 
@@ -203,9 +228,57 @@ function initMap() {
     tryGeolocation(true);
 }
 
-// Vector Layer Styling
-function getVectorStyle() {
+// Dynamic Vector Styling for Polygons & OSM Lines
+function getVectorStyle(feature) {
     const isLight = document.body.classList.contains('light-theme');
+    const props = feature?.properties || {};
+
+    // 1. Road styling
+    if (props.highway) {
+        const h = props.highway;
+        if (['motorway', 'trunk', 'primary'].includes(h)) {
+            return {
+                color: isLight ? '#ea580c' : '#f97316', // Vibrant Orange
+                weight: 3.5,
+                opacity: 0.95
+            };
+        } else if (['secondary', 'tertiary'].includes(h)) {
+            return {
+                color: isLight ? '#0891b2' : '#06b6d4', // Cyan
+                weight: 2.2,
+                opacity: 0.9
+            };
+        } else {
+            return {
+                color: isLight ? '#64748b' : '#94a3b8', // Subtle Slate
+                weight: 1.5,
+                opacity: 0.75
+            };
+        }
+    }
+
+    // 2. Waterway styling
+    if (props.waterway || props.natural === 'water') {
+        return {
+            color: isLight ? '#0284c7' : '#38bdf8', // Blue Water
+            fillColor: isLight ? '#bae6fd' : '#0369a1',
+            fillOpacity: 0.3,
+            weight: 2.2,
+            opacity: 0.9
+        };
+    }
+
+    // 3. Railway styling
+    if (props.railway) {
+        return {
+            color: isLight ? '#7c3aed' : '#a855f7', // Purple Rail
+            weight: 2,
+            dashArray: '4, 4',
+            opacity: 0.85
+        };
+    }
+
+    // 4. Default Polygon styling (IBGE Boundaries)
     return {
         fillColor: isLight ? '#0891b2' : '#06b6d4',
         weight: 1.5,
@@ -216,7 +289,7 @@ function getVectorStyle() {
     };
 }
 
-// Render GeoJSON Vector Layer on Leaflet
+// Render GeoJSON / FlatGeobuf Vector Layer on Leaflet
 function renderVectorLayer(geojsonData) {
     if (vectorLayer) {
         map.removeLayer(vectorLayer);
@@ -235,7 +308,7 @@ function renderVectorLayer(geojsonData) {
         style: getVectorStyle,
         onEachFeature: (feature, layer) => {
             const props = feature.properties || {};
-            const name = props.nome || props.name || props.NM_ESTADO || props.NM_MUN || props.CD_UF || props.id || 'Região';
+            const name = props.name || props.nome || props.ref || props.highway || props.waterway || props.NM_ESTADO || props.NM_MUN || props.CD_UF || 'Elemento';
             layer.bindTooltip(name, { sticky: true });
             layer.on('click', (e) => {
                 handleMapClick(e);
@@ -324,7 +397,234 @@ function setMapMode(mode, showNotification = true) {
     }
 }
 
-// Download Brazil Base Mesh from IBGE API
+// ==========================================
+// 🛰️ BBOX & FlatGeobuf (Overpass API)
+// ==========================================
+
+function updateBboxPreview(bounds) {
+    if (bboxRectangleLayer) {
+        map.removeLayer(bboxRectangleLayer);
+    }
+    bboxRectangleLayer = L.rectangle(bounds, {
+        color: '#06b6d4',
+        weight: 2,
+        dashArray: '6, 6',
+        fillColor: '#06b6d4',
+        fillOpacity: 0.15
+    }).addTo(map);
+}
+
+function clearBboxPreview() {
+    if (bboxRectangleLayer) {
+        map.removeLayer(bboxRectangleLayer);
+        bboxRectangleLayer = null;
+    }
+}
+
+function setCapturedBBOX(s, w, n, e) {
+    selectedBBOX = { south: s, west: w, north: n, east: e };
+    const bounds = L.latLngBounds([s, w], [n, e]);
+    updateBboxPreview(bounds);
+
+    if (bboxStatusBox && bboxStatusText) {
+        bboxStatusBox.classList.add('ready');
+        bboxStatusText.innerHTML = `✅ <strong>Área Definida:</strong> [${s.toFixed(3)}, ${w.toFixed(3)}] até [${n.toFixed(3)}, ${e.toFixed(3)}]`;
+    }
+
+    if (!inputFgbName.value.trim()) {
+        inputFgbName.value = `Recorte OSM (${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`;
+    }
+
+    if (btnGenerateFgb) btnGenerateFgb.disabled = false;
+}
+
+function useViewportBBOX() {
+    const bounds = map.getBounds();
+    const s = bounds.getSouth();
+    const w = bounds.getWest();
+    const n = bounds.getNorth();
+    const e = bounds.getEast();
+    setCapturedBBOX(s, w, n, e);
+    showToast('Área da tela capturada!');
+}
+
+function startDrawingBBOX() {
+    isDrawingBBOX = true;
+    drawStartLatLng = null;
+    if (modalOfflineMaps) modalOfflineMaps.style.display = 'none';
+    if (bboxDrawBanner) bboxDrawBanner.style.display = 'flex';
+    map.getContainer().style.cursor = 'crosshair';
+}
+
+function cancelDrawingBBOX() {
+    isDrawingBBOX = false;
+    drawStartLatLng = null;
+    if (bboxDrawBanner) bboxDrawBanner.style.display = 'none';
+    map.getContainer().style.cursor = '';
+    if (modalOfflineMaps) modalOfflineMaps.style.display = 'flex';
+}
+
+function handleBboxMapClick(e) {
+    if (!isDrawingBBOX) return;
+
+    if (!drawStartLatLng) {
+        drawStartLatLng = e.latlng;
+        showToast('Primeiro ponto fixado. Toque no canto oposto!');
+    } else {
+        const s = Math.min(drawStartLatLng.lat, e.latlng.lat);
+        const n = Math.max(drawStartLatLng.lat, e.latlng.lat);
+        const w = Math.min(drawStartLatLng.lng, e.latlng.lng);
+        const eLng = Math.max(drawStartLatLng.lng, e.latlng.lng);
+
+        setCapturedBBOX(s, w, n, eLng);
+        isDrawingBBOX = false;
+        drawStartLatLng = null;
+        if (bboxDrawBanner) bboxDrawBanner.style.display = 'none';
+        map.getContainer().style.cursor = '';
+        if (modalOfflineMaps) modalOfflineMaps.style.display = 'flex';
+        showToast('Retângulo definido com sucesso!');
+    }
+}
+
+// Generate FlatGeobuf from OSM Overpass API
+async function generateFlatGeobuf() {
+    if (!selectedBBOX) {
+        showToast('Defina uma área de recorte primeiro.', 'error');
+        return;
+    }
+
+    const name = inputFgbName.value.trim() || 'Recorte OSM (.fgb)';
+    const includeRoads = fgbLayerRoads ? fgbLayerRoads.checked : true;
+    const includeWater = fgbLayerWater ? fgbLayerWater.checked : true;
+    const includeRails = fgbLayerRails ? fgbLayerRails.checked : false;
+
+    if (!includeRoads && !includeWater && !includeRails) {
+        showToast('Selecione ao menos uma camada para incluir.', 'error');
+        return;
+    }
+
+    btnGenerateFgb.disabled = true;
+    btnGenerateFgb.textContent = 'Baixando dados do OpenStreetMap... ⏳';
+
+    try {
+        const { south, west, north, east } = selectedBBOX;
+        
+        let queryParts = [];
+        if (includeRoads) {
+            queryParts.push(`way["highway"~"motorway|trunk|primary|secondary|tertiary|residential|unclassified|track|service"](${south},${west},${north},${east});`);
+        }
+        if (includeWater) {
+            queryParts.push(`way["waterway"~"river|stream|canal|drain"](${south},${west},${north},${east});`);
+            queryParts.push(`way["natural"="water"](${south},${west},${north},${east});`);
+        }
+        if (includeRails) {
+            queryParts.push(`way["railway"~"rail|light_rail"](${south},${west},${north},${east});`);
+        }
+
+        const overpassQuery = `[out:json][timeout:25];(\n  ${queryParts.join('\n  ')}\n);\nout geom;`;
+        
+        const overpassUrl = 'https://overpass-api.de/api/interpreter';
+        const resp = await fetch(overpassUrl, {
+            method: 'POST',
+            body: 'data=' + encodeURIComponent(overpassQuery),
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+
+        if (!resp.ok) throw new Error('Falha na consulta Overpass OSM');
+        const osmData = await resp.json();
+        const elements = osmData.elements || [];
+
+        if (elements.length === 0) {
+            throw new Error('Nenhum elemento encontrado nesta área.');
+        }
+
+        btnGenerateFgb.textContent = 'Gerando FlatGeobuf binário (.fgb)... ⚡';
+
+        // Convert OSM elements to GeoJSON
+        const features = [];
+        elements.forEach(el => {
+            const geom = el.geometry || [];
+            if (geom.length >= 2) {
+                const coords = geom.map(pt => [pt.lon, pt.lat]);
+                features.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: coords
+                    },
+                    properties: el.tags || {}
+                });
+            }
+        });
+
+        const geojson = { type: 'FeatureCollection', features };
+
+        // FlatGeobuf binary serialization
+        let fgbBinaryArray = null;
+        if (window.flatgeobuf && window.flatgeobuf.geojson && window.flatgeobuf.geojson.serialize) {
+            const uint8 = window.flatgeobuf.geojson.serialize(geojson);
+            fgbBinaryArray = Array.from(uint8);
+        }
+
+        const mapId = `fgb_${Date.now()}`;
+        const mapTitle = `🛰️ ${name}`;
+
+        await saveMapToDB(mapId, mapTitle, 'fgb_osm', geojson, { fgbBinary: fgbBinaryArray, bounds: selectedBBOX });
+        await loadActiveVectorMap(mapId);
+        setMapMode('offline');
+
+        clearBboxPreview();
+        if (modalOfflineMaps) modalOfflineMaps.style.display = 'none';
+
+        if (vectorLayer && vectorLayer.getBounds().isValid()) {
+            map.fitBounds(vectorLayer.getBounds(), { padding: [20, 20] });
+        }
+
+        showToast(`Mapa "${name}" gerado em FlatGeobuf com sucesso!`);
+    } catch (err) {
+        console.error(err);
+        showToast(`Erro ao gerar FlatGeobuf: ${err.message}`, 'error');
+    } finally {
+        btnGenerateFgb.disabled = false;
+        btnGenerateFgb.textContent = '⚡ Gerar Mapa Vetorial (.fgb)';
+    }
+}
+
+// Download/Export .fgb file
+function exportFgbFile(mapItem) {
+    if (!mapItem || !mapItem.geojson) return;
+    try {
+        let blob;
+        if (mapItem.fgbBinary) {
+            const uint8 = new Uint8Array(mapItem.fgbBinary);
+            blob = new Blob([uint8], { type: 'application/octet-stream' });
+        } else if (window.flatgeobuf && window.flatgeobuf.geojson) {
+            const uint8 = window.flatgeobuf.geojson.serialize(mapItem.geojson);
+            blob = new Blob([uint8], { type: 'application/octet-stream' });
+        } else {
+            blob = new Blob([JSON.stringify(mapItem.geojson)], { type: 'application/json' });
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const cleanName = (mapItem.name || 'mapa').replace(/[^a-zA-Z0-9_-]/g, '_');
+        a.download = `${cleanName}.fgb`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Download do arquivo .fgb iniciado!');
+    } catch (e) {
+        console.error(e);
+        showToast('Erro ao exportar arquivo .fgb', 'error');
+    }
+}
+
+// ==========================================
+// 🏛️ IBGE Downloads
+// ==========================================
+
 async function downloadBrazilBase() {
     if (!btnDlBrazil) return;
     btnDlBrazil.disabled = true;
@@ -348,11 +648,10 @@ async function downloadBrazilBase() {
         showToast('Erro ao baixar mapa do Brasil.', 'error');
     } finally {
         btnDlBrazil.disabled = false;
-        btnDlBrazil.textContent = '🇧🇷 Baixar Mapa do Brasil (30 KB)';
+        btnDlBrazil.textContent = 'Baixar Divisão de Estados do Brasil (30 KB)';
     }
 }
 
-// Load cities for selected UF
 async function loadCitiesForUF() {
     if (!selectUF || !selectCity) return;
     const uf = selectUF.value;
@@ -360,7 +659,7 @@ async function loadCitiesForUF() {
     if (!uf) {
         if (btnDlUF) btnDlUF.disabled = true;
         selectCity.disabled = true;
-        selectCity.innerHTML = '<option value="">2. Selecione a Cidade...</option>';
+        selectCity.innerHTML = '<option value="">Selecione o Estado acima primeiro...</option>';
         if (btnDlCity) btnDlCity.disabled = true;
         return;
     }
@@ -379,7 +678,7 @@ async function loadCitiesForUF() {
         if (!resp.ok) throw new Error('Falha ao carregar lista de municípios');
         const cities = await resp.json();
 
-        selectCity.innerHTML = '<option value="">2. Selecione a Cidade...</option>';
+        selectCity.innerHTML = '<option value="">Selecione a Cidade...</option>';
         cities.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
@@ -393,7 +692,6 @@ async function loadCitiesForUF() {
     }
 }
 
-// Download State Municipalities from IBGE API
 async function downloadStateMesh() {
     if (!selectUF || !btnDlUF) return;
     const uf = selectUF.value;
@@ -416,12 +714,11 @@ async function downloadStateMesh() {
         }
 
         const mapId = `uf_${uf.toLowerCase()}`;
-        const mapName = `📍 Municípios - ${uf}`;
+        const mapName = `🏛️ Municípios de ${uf}`;
         await saveMapToDB(mapId, mapName, 'ibge_uf', geojson);
         await loadActiveVectorMap(mapId);
         setMapMode('offline');
 
-        // Fit map bounds to downloaded state
         if (vectorLayer && vectorLayer.getBounds().isValid()) {
             map.fitBounds(vectorLayer.getBounds(), { padding: [20, 20] });
         }
@@ -436,7 +733,6 @@ async function downloadStateMesh() {
     }
 }
 
-// Download Specific Municipality in Maximum Quality
 async function downloadCityMesh() {
     if (!selectCity || !btnDlCity || !selectUF) return;
     const cityId = selectCity.value;
@@ -464,7 +760,6 @@ async function downloadCityMesh() {
         await loadActiveVectorMap(mapId);
         setMapMode('offline');
 
-        // Fit map bounds to city
         if (vectorLayer && vectorLayer.getBounds().isValid()) {
             map.fitBounds(vectorLayer.getBounds(), { padding: [30, 30] });
         }
@@ -479,33 +774,73 @@ async function downloadCityMesh() {
     }
 }
 
-// Pick custom GeoJSON from local device storage
+// Custom file upload (GeoJSON or FlatGeobuf .fgb)
 function handleCustomFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (e) => {
-        try {
-            const geojson = JSON.parse(e.target.result);
-            if (!geojson || (!geojson.type && !geojson.features)) {
-                throw new Error('Arquivo não possui formato GeoJSON válido.');
+    const isFGB = file.name.toLowerCase().endsWith('.fgb');
+
+    if (isFGB) {
+        reader.onload = async (e) => {
+            try {
+                const arrayBuffer = e.target.result;
+                const uint8 = new Uint8Array(arrayBuffer);
+                let geojson = null;
+
+                if (window.flatgeobuf && window.flatgeobuf.deserialize) {
+                    const features = [];
+                    const iter = window.flatgeobuf.deserialize(uint8);
+                    for await (const feature of iter) {
+                        features.push(feature);
+                    }
+                    geojson = { type: 'FeatureCollection', features };
+                }
+
+                if (!geojson || !geojson.features) {
+                    throw new Error('Não foi possível ler o arquivo FlatGeobuf.');
+                }
+
+                const mapId = `custom_fgb_${Date.now()}`;
+                const mapName = `🛰️ ${file.name}`;
+                await saveMapToDB(mapId, mapName, 'fgb_custom', geojson, { fgbBinary: Array.from(uint8) });
+                await loadActiveVectorMap(mapId);
+                setMapMode('offline');
+                if (vectorLayer && vectorLayer.getBounds().isValid()) {
+                    map.fitBounds(vectorLayer.getBounds(), { padding: [20, 20] });
+                }
+                showToast(`Arquivo FlatGeobuf "${file.name}" carregado!`);
+            } catch (err) {
+                console.error(err);
+                showToast('Erro ao ler arquivo FlatGeobuf (.fgb).', 'error');
             }
-            const mapId = `custom_${Date.now()}`;
-            const mapName = `📁 ${file.name}`;
-            await saveMapToDB(mapId, mapName, 'custom', geojson);
-            await loadActiveVectorMap(mapId);
-            setMapMode('offline');
-            if (vectorLayer && vectorLayer.getBounds().isValid()) {
-                map.fitBounds(vectorLayer.getBounds(), { padding: [20, 20] });
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        reader.onload = async (e) => {
+            try {
+                const geojson = JSON.parse(e.target.result);
+                if (!geojson || (!geojson.type && !geojson.features)) {
+                    throw new Error('Arquivo não possui formato GeoJSON válido.');
+                }
+                const mapId = `custom_${Date.now()}`;
+                const mapName = `📁 ${file.name}`;
+                await saveMapToDB(mapId, mapName, 'custom', geojson);
+                await loadActiveVectorMap(mapId);
+                setMapMode('offline');
+                if (vectorLayer && vectorLayer.getBounds().isValid()) {
+                    map.fitBounds(vectorLayer.getBounds(), { padding: [20, 20] });
+                }
+                showToast(`Mapa "${file.name}" carregado com sucesso!`);
+            } catch (err) {
+                console.error(err);
+                showToast('Erro ao ler arquivo GeoJSON.', 'error');
             }
-            showToast(`Mapa "${file.name}" carregado com sucesso!`);
-        } catch (err) {
-            console.error(err);
-            showToast('Erro ao ler arquivo GeoJSON.', 'error');
-        }
-    };
-    reader.readAsText(file);
+        };
+        reader.readAsText(file);
+    }
+
     event.target.value = '';
 }
 
@@ -525,7 +860,8 @@ async function renderSavedMapsList() {
         const isActive = (m.id === activeMapId);
         item.className = `saved-map-item ${isActive ? 'active-map' : ''}`;
 
-        const sizeKb = Math.round(JSON.stringify(m.geojson).length / 1024);
+        const sizeKb = Math.round((m.fgbBinary ? m.fgbBinary.length : JSON.stringify(m.geojson).length) / 1024);
+        const isFGB = m.type === 'fgb_osm' || m.type === 'fgb_custom' || !!m.fgbBinary;
 
         item.innerHTML = `
             <div class="map-item-info">
@@ -534,11 +870,12 @@ async function renderSavedMapsList() {
             </div>
             <div class="map-item-actions">
                 ${!isActive ? `<button class="btn-map-use" data-id="${m.id}">Usar</button>` : ''}
-                ${m.id !== 'brazil_base' ? `<button class="btn-map-delete" data-id="${m.id}">🗑️</button>` : ''}
+                ${isFGB ? `<button class="btn-map-use btn-map-export" data-id="${m.id}" title="Exportar arquivo .fgb">⬇️</button>` : ''}
+                ${m.id !== 'brazil_base' ? `<button class="btn-map-delete" data-id="${m.id}" title="Excluir">🗑️</button>` : ''}
             </div>
         `;
 
-        const useBtn = item.querySelector('.btn-map-use');
+        const useBtn = item.querySelector('.btn-map-use:not(.btn-map-export)');
         if (useBtn) {
             useBtn.addEventListener('click', async () => {
                 await loadActiveVectorMap(m.id);
@@ -547,6 +884,13 @@ async function renderSavedMapsList() {
                     map.fitBounds(vectorLayer.getBounds(), { padding: [20, 20] });
                 }
                 showToast(`Mapa "${m.name}" ativado`);
+            });
+        }
+
+        const exportBtn = item.querySelector('.btn-map-export');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                exportFgbFile(m);
             });
         }
 
@@ -679,6 +1023,20 @@ function closeOfflineModal() {
     if (modalOfflineMaps) modalOfflineMaps.style.display = 'none';
 }
 
+// Tab Switching
+function handleTabSwitch(e) {
+    const targetTabId = e.currentTarget.dataset.tab;
+    if (!targetTabId) return;
+
+    modalTabBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === targetTabId);
+    });
+
+    tabContents.forEach(content => {
+        content.classList.toggle('active', content.id === targetTabId);
+    });
+}
+
 // Setup Event Listeners
 function setupEventListeners() {
     if (rawInput) {
@@ -709,7 +1067,7 @@ function setupEventListeners() {
         });
     }
 
-    // Offline Map controls
+    // Offline Map controls & Tabs
     if (btnModeOnline) btnModeOnline.addEventListener('click', () => setMapMode('online'));
     if (btnModeOffline) btnModeOffline.addEventListener('click', () => setMapMode('offline'));
     if (btnOfflineManager) btnOfflineManager.addEventListener('click', openOfflineModal);
@@ -721,13 +1079,20 @@ function setupEventListeners() {
         });
     }
 
-    if (btnDlBrazil) btnDlBrazil.addEventListener('click', downloadBrazilBase);
-    
-    if (selectUF) {
-        selectUF.addEventListener('change', loadCitiesForUF);
-    }
-    if (btnDlUF) btnDlUF.addEventListener('click', downloadStateMesh);
+    modalTabBtns.forEach(btn => {
+        btn.addEventListener('click', handleTabSwitch);
+    });
 
+    // BBOX & FlatGeobuf listeners
+    if (btnBboxViewport) btnBboxViewport.addEventListener('click', useViewportBBOX);
+    if (btnBboxDraw) btnBboxDraw.addEventListener('click', startDrawingBBOX);
+    if (btnCancelDraw) btnCancelDraw.addEventListener('click', cancelDrawingBBOX);
+    if (btnGenerateFgb) btnGenerateFgb.addEventListener('click', generateFlatGeobuf);
+
+    // IBGE listeners
+    if (btnDlBrazil) btnDlBrazil.addEventListener('click', downloadBrazilBase);
+    if (selectUF) selectUF.addEventListener('change', loadCitiesForUF);
+    if (btnDlUF) btnDlUF.addEventListener('click', downloadStateMesh);
     if (selectCity) {
         selectCity.addEventListener('change', () => {
             if (btnDlCity) btnDlCity.disabled = !selectCity.value;
@@ -783,6 +1148,11 @@ function handleInputChange() {
 
 // Handle Map Clicks
 function handleMapClick(e) {
+    if (isDrawingBBOX) {
+        handleBboxMapClick(e);
+        return;
+    }
+
     const lat = e.latlng.lat;
     const lng = e.latlng.lng;
     

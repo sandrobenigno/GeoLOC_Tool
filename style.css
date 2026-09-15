@@ -1247,3 +1247,160 @@ body.light-theme .saved-map-item {
     border-color: rgba(0, 0, 0, 0.06);
 }
 
+/* Modal Large & Tabs */
+.modal-card-large {
+    max-width: 520px;
+}
+
+.modal-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--card-border);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.modal-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    padding: 12px 6px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.modal-tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.modal-tab-btn.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+    background: rgba(6, 182, 212, 0.06);
+}
+
+body.light-theme .modal-tabs {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+body.light-theme .modal-tab-btn.active {
+    color: #0891b2;
+    border-bottom-color: #0891b2;
+    background: rgba(8, 145, 178, 0.08);
+}
+
+.tab-content {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.tab-content.active {
+    display: flex;
+}
+
+/* Bounding Box Drawing & Tools */
+.bbox-action-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.bbox-action-buttons .btn {
+    flex: 1;
+    min-width: 140px;
+}
+
+.bbox-status-box {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px dashed var(--card-border);
+    border-radius: var(--border-radius-md);
+    padding: 8px 12px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.bbox-status-box.ready {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    background: rgba(6, 182, 212, 0.08);
+}
+
+.bbox-draw-banner {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    background: rgba(13, 15, 23, 0.95);
+    border: 1.5px solid var(--accent-color);
+    border-radius: var(--border-radius-md);
+    padding: 8px 14px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.2s ease;
+}
+
+.btn-cancel-draw {
+    background: rgba(244, 63, 94, 0.2);
+    border: 1px solid var(--danger-color);
+    color: var(--danger-color);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.btn-cancel-draw:hover {
+    background: var(--danger-color);
+    color: #fff;
+}
+
+.input-text-modern {
+    width: 100%;
+    background-color: rgba(10, 11, 18, 0.7);
+    border: 1px solid var(--card-border);
+    border-radius: var(--border-radius-md);
+    color: var(--text-primary);
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    outline: none;
+    transition: var(--transition-smooth);
+}
+
+.input-text-modern:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+body.light-theme .input-text-modern {
+    background-color: #ffffff;
+    border-color: rgba(0, 0, 0, 0.12);
+    color: var(--text-primary);
+}
+
+.compact-options {
+    gap: 6px;
+}
+
+.compact-options .layer-toggle-item {
+    padding: 8px 10px;
+}
+
+
