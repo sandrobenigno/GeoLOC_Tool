@@ -225,6 +225,8 @@ function initMap() {
         currentTileLayer.addTo(map);
     }
 
+    map.on('click', handleMapClick);
+
     tryGeolocation(true);
 }
 
@@ -410,7 +412,8 @@ function updateBboxPreview(bounds) {
         weight: 2,
         dashArray: '6, 6',
         fillColor: '#06b6d4',
-        fillOpacity: 0.15
+        fillOpacity: 0.15,
+        interactive: false
     }).addTo(map);
 }
 
@@ -1042,6 +1045,10 @@ function setupEventListeners() {
     if (rawInput) {
         rawInput.addEventListener('input', handleInputChange);
         rawInput.addEventListener('paste', () => setTimeout(handleInputChange, 10));
+    }
+
+    if (map) {
+        map.on('click', handleMapClick);
     }
 
     if (btnLocate) btnLocate.addEventListener('click', () => tryGeolocation(false));
